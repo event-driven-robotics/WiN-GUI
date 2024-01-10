@@ -1,0 +1,9 @@
+matplotlib
+numpy
+pandas
+pydub
+pyside2
+pyqt6
+scikit-learn
+scipy
+torch
