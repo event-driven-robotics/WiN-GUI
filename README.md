@@ -10,10 +10,8 @@ Available neuron models are:
 - [Leaky-integrate and firing neuron](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L222).
 - [Recurrent leaky-integrate and firing neuron](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L274).
 
-![WiN_gui](https://github.com/2103simon/encoding_gui/blob/main/assets/WiN_gui.png)
-
 ## Installation
-The WiN-GUI is based on [PyQT6](https://www.riverbankcomputing.com/software/pyqt/) and [PyTorch](https://pytorch.org/). Some other packages are requiered, too. Use the [requirements](https://github.com/2103simon/encoding_gui/blob/main/requirements.txt) file provided to set everything up Further libraries we face missing often are listed in [Packages you might need to install](#packages-you-might-need-to-install).
+The WiN-GUI is based on [PyQT6](https://pypi.org/project/PyQt6/) and [PyTorch](https://pytorch.org/). Some other packages are requiered, too. Use the [requirements](https://github.com/2103simon/encoding_gui/blob/main/requirements.txt) file provided to set everything up Further libraries we face missing often are listed in [Packages you might need to install](#packages-you-might-need-to-install).
 
 
 ## Data structure
@@ -39,23 +37,23 @@ We use the Multidimensional image processing (scipy.ndimage) for filtering, and 
 
 # How to
 ## Change the filter
-If you want to change the filter properties you can do this [here](https://github.com/2103simon/encoding_gui/blob/d07c60c680ace8ccb1121eeaa21acb9480533ef1/utils/data_management.py#L34). To change the filter replace the default filter [here](https://github.com/2103simon/encoding_gui/blob/d07c60c680ace8ccb1121eeaa21acb9480533ef1/utils/data_management.py#L57).
+If you want to change the filter properties you can do this [here](https://github.com/2103simon/encoding_gui/blob/d07c60c680ace8ccb1121eeaa21acb9480533ef1/utils/data_management.py#L34). To change the filter type replace the default filter [here](https://github.com/2103simon/encoding_gui/blob/d07c60c680ace8ccb1121eeaa21acb9480533ef1/utils/data_management.py#L57).
 
 ## Include custom neuron models
-The WiN-GUI can be extended with further neuron models! To use your custom neuron model, the model has to be added [here](https://github.com/2103simon/encoding_gui/blob/main/utils/models.py) and the according parameter [here](https://github.com/2103simon/encoding_gui/blob/main/parameters/encoding_parameter.py). Finally, you need to load your model to be used in the GUI. Brief overview showing a custom neuron model in PyTroch you can find [here](https://pytorch.org/tutorials/beginner/examples_nn/polynomial_module.html).
+The WiN-GUI can be extended with further neuron models! To use your custom neuron model, the model has to be added [here](https://github.com/2103simon/encoding_gui/blob/main/utils/neuron_models.py) and the according parameter [here](https://github.com/2103simon/encoding_gui/blob/main/utils/neuron_parameters.py). Finally, you need to load your model to be used in the GUI. Brief overview showing a custom neuron model in PyTroch you can find [here](https://pytorch.org/tutorials/beginner/examples_nn/polynomial_module.html).
 
 Here comes a step by step how to guide based on the LIF neuron:
 
 1. Add your neuron model:
-   1. Add a new class as `NAME(nn.Module)`, [ref.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L222).
-   2. List the `NeuronState` variables, [ref.]([TODO ref](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L223)).
-   3. Define the model (`init`, `forward`, `reset`) and pay attention to set the default values, [ref.]([TODO ref](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L225)).
+   1. Add a new class as `NAME(nn.Module)`, [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L222).
+   2. List the `NeuronState` variables, [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L223).
+   3. Define the model (`init`, `forward`, `reset`) and pay attention to set the default values, [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L225).
 2. Add the neuron parameter:
-   1. Add a new dictionary in the [neuron_parameters file](https://github.com/2103simon/encoding_gui/blob/main/utils/neuron_parameters.py) as `NAME={}`, [ref](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_parameters.py#L34).
-   2. Each entry has to match a single member in the `NeuronState` list (see 1.2), but not all `NeuronState` members have to be listed here. For not listed the default values from the `init` (see 1.3) are used.
+   1. Add a new dictionary in the [neuron_parameters file](https://github.com/2103simon/encoding_gui/blob/main/utils/neuron_parameters.py), [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_parameters.py#L34).
+   2. Each entry has to match a single member in the `NeuronState` list (see 1.2), but not all `NeuronState` members must be listed here. For not listed members the default values from the `init` (see 1.3) are used.
 3. Load the neuron model and parameter:
-    1. Include the model [here](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/WiN_GUI.py#L37), [here](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/WiN_GUI.py#L64), [here](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/WiN_GUI.py#L262), [here](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/WiN_GUI.py#L609), and [here](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/WiN_GUI.py#L742).
-    2. The default neuron model can be set [here](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/WiN_GUI.py#L177).
+    1. Include the model in the main file [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L37), [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L64C26-L64C44), [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L259), [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L625), and [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L758).
+    2. The default neuron model can be set [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L174).
   
 If you implement a new model, and want to make it available for the community, let us know!
 
