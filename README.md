@@ -47,7 +47,7 @@ Here comes a step by step how to guide based on the LIF neuron:
 
 1. Add your neuron model:
    1. Add a new class as `NAME(nn.Module)`, [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L222).
-   2. List the `NeuronState` variables, [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L223).
+   2. List the `NeuronState` variables (must start with "V" and end with "spk"), [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L223).
    3. Define the model (`init`, `forward`, `reset`) and pay attention to set the default values, [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L225).
 2. Add the neuron parameter:
    1. Add a new dictionary in the [neuron_parameters file](https://github.com/2103simon/encoding_gui/blob/main/utils/neuron_parameters.py), [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_parameters.py#L34).
