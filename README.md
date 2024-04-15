@@ -51,7 +51,7 @@ Here comes a step by step how to guide based on the LIF neuron:
    3. Define the model (`init`, `forward`, `reset`) and pay attention to set the default values, [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L225).
 2. Add the neuron parameter:
    1. Add a new dictionary in the [neuron_parameters file](https://github.com/2103simon/encoding_gui/blob/main/utils/neuron_parameters.py), [e.g.](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_parameters.py#L34).
-   2. Each entry has to match a single member in the `NeuronState` list (see 1.2), but not all `NeuronState` members must be listed here. For not listed members the default values from the `init` (see 1.3) are used.
+   2. Each entry has to match a single member in the neuron model ["init" list](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L225).
 3. Load the neuron model and parameter:
     1. Include the model in the main file [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L37), [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L64C26-L64C44), [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L259), [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L625), and [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L758).
     2. The default neuron model can be set [here](https://github.com/event-driven-robotics/WiN-GUI/blob/199c3cdee3832d7b6dcf863545a69eed96f9a828/WiN_GUI.py#L174).
@@ -59,8 +59,7 @@ Here comes a step by step how to guide based on the LIF neuron:
 If you implement a new model, and want to make it available for the community, let us know!
 
 ## Write your own template for the sensor visualization
-For those who want to give there GUI the perfect personal glance can change the sensor visualization to reflect the physical setup. The default will be a grid, shown in the example is the iCub fingertip map.
-TODO here will be the description of default settings and possibility to include a personal visualization.
+For those who want to give there GUI the perfect personal glance can change the sensor visualization to reflect the physical setup. Implementing a custom visualization must be able to handle the splitting of each sensor stream into two streams. In other words: two layouts are needed: 1. the orignal and 2. twice as many as the original.
 
 
 ### Packages you might need to install
