@@ -2,6 +2,8 @@
  
 Have you ever wondered how your data would look like in *neuromorphic*? Have you ever wondered what is actually going on *in* a neuron and how does a bunch of them *sound* like? Just run the WiN_GUI.py file and you will find out!
 
+![example_surface_gui](https://github.com/event-driven-robotics/WiN-GUI/blob/master/assets/win_gui_example.png)
+
 Here we present the **WiN-GUI** (Watch inside Neurons-GUI) to interactively change neuron models and parameters. It allows to load any sample-based time-series data (for more details see [Data structure](#data-structure)) and converts it into membrane voltage traces and spike-trains. Playing with the parameter sliders helps to understand their interaction, the neuron mechanics and how your encoded data changes accordingly. The neuron model can be changed with a single click and the GUI will update the visualization. If you have your own neuron model and want to tune tha parameters check out the How-to: [include custom neuron models](#include-custom-neuron-models) chapter. 
 
 Available neuron models are:
