@@ -31,11 +31,13 @@ Please have a look at the example data provided for further details.
 The parameter to be manipulated in the WiN-GUI are defined in the [neuron model](https://github.com/2103simon/encoding_gui/blob/main/utils/neuron_models.py) and seperatly in a [python file](https://github.com/2103simon/encoding_gui/blob/main/utils/neuron_parameters.py). The parameter listed in the python file must not contain all parameters defined in the neuron model, the default will be used for the missing one. The python file allows setting the min and max value for each parameter, the precision (step) for the slider, and the intial value.
 
 ## Preprocessing
-We use the Multidimensional image processing (scipy.ndimage) for filtering, and Signal processing (:mod:`scipy.signal`) for resampling.
+We use the Multidimensional image processing (`scipy.ndimage`) for filtering, and Signal processing (`scipy.signal`) for resampling.
 
 ## Channel selection
+The channel selection panel allows enabling or disabling single channels to improve the readability of the remaining. Channels to visualize are highlighted in green, whereas hidden channels are highlighted in red. The channel selection can be adapted to personal needs and preferences regarding shape, spacing, and location.
 
 ## Neuron model and parameter
+Neuron models are implemented using PyTorch. The models can be found [here](https://github.com/event-driven-robotics/WiN-GUI/blob/master/utils/neuron_models.py). The according parameters [here](https://github.com/event-driven-robotics/WiN-GUI/blob/master/utils/neuron_parameters.py). Implementing a neuron requires setting all parameters with default values. Parameters that should be manipulatable in the GUI surface must be added by the same name in the parameters file. For all parameters not added, the GUI will fall back to the default values specified in the neuron model. Each parameter must start with the lower boundary, followed by the upper boundary, the step size, and finally the initial value.
 
 # How to
 ## Change the filter
