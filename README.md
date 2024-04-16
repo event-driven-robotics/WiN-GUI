@@ -9,8 +9,8 @@ Here we present the **WiN-GUI** (Watch inside Neurons-GUI) to interactively chan
 Available neuron models are:
 - [Mihalas-Niebur neuron](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L50).
 - [Izhikevich neuron](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L149).
-- [Leaky-integrate and firing neuron](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L222).
-- [Recurrent leaky-integrate and firing neuron](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L274).
+- [Leaky integrate-and-fire neuron](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L222).
+- [Recurrent leaky integrate-and-fire neuron](https://github.com/2103simon/encoding_gui/blob/398aa68263e1a07fee5272eccd69fc206003d92b/utils/neuron_models.py#L274).
 
 ## Installation
 The WiN-GUI is based on [PyQT6](https://pypi.org/project/PyQt6/) and [PyTorch](https://pytorch.org/). Some other packages are requiered, too. Use the [requirements](https://github.com/2103simon/encoding_gui/blob/main/requirements.txt) file provided to set everything up Further libraries we face missing often are listed in [Packages you might need to install](#packages-you-might-need-to-install).
