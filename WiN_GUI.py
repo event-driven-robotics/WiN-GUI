@@ -30,7 +30,7 @@ from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QFileDialog, QGridLayout, QLabel, QMainWindow,
                              QPushButton, QSlider, QSplitter, QWidget)
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 
 from utils.data_management import (create_directory, load_data,
                                    preprocess_data, split_data)
@@ -212,7 +212,8 @@ class WiN_GUI_Window(QMainWindow):
         # When simulation finished, plot the result
         self.encoding_calc.signalData.connect(self._updateCanvas)
         self.encoding_calc.signalData.connect(self._updateSpikesToAudio)
-        self.encoding_calc.signalData.connect(self._updateSpikePatternClassification)
+        self.encoding_calc.signalData.connect(
+            self._updateSpikePatternClassification)
         self.encoding_calc.moveToThread(self.thread)
 
         self.thread.start()
@@ -848,7 +849,7 @@ class WiN_GUI_Window(QMainWindow):
             startTrialAtNull=self.startTrialAtNull,
         )
         if 'example_braille_data' in self.dataFilename:
-            self.dt = 1E-2 # 1/40  # 25Hz in sec
+            self.dt = 1E-2  # 1/40  # 25Hz in sec
         self.channels = np.ones(self.data.shape[-1], dtype=bool)
         self.data_default = self.data.numpy()
         self.timestamps_default = self.timestamps.copy()
@@ -1022,9 +1023,56 @@ class WiN_GUI_Window(QMainWindow):
     ############################
     # SPIKE PATTERN CLASSIFIER #
     ############################
-    def spikePatternClassification(self, dataset, sensor_idc):
+    def spikePatternClassification(self, generator):
+        device = self._checkCuda(gpu_sel=1, gpu_mem_frac=0.3)
         # now we can work through the created datset!
-        pass
+        sensor_id_list = []
+        predictions_list = []
+        for spikes, sensor_ids in generator:
+            spikes = spikes.to(device, non_blocking=True)
+
+            pass
+
+    def _checkCuda(self, share_GPU=False, gpu_sel=0, gpu_mem_frac=None):
+        """Check for available GPU and distribute work (if needed/wanted)"""
+
+        if (torch.cuda.device_count() > 1) & (share_GPU):
+            gpu_av = [torch.cuda.is_available()
+                      for ii in range(torch.cuda.device_count())]
+            print("Detected {} GPUs. The load will be shared.".format(
+                torch.cuda.device_count()))
+            for gpu in range(len(gpu_av)):
+                if True in gpu_av:
+                    if gpu_av[gpu_sel]:
+                        device = torch.device("cuda:"+str(gpu))
+                        print("Selected GPUs: {}" .format("cuda:"+str(gpu)))
+                    else:
+                        device = torch.device("cuda:"+str(gpu_av.index(True)))
+                else:
+                    device = torch.device("cpu")
+                    print("No available GPU detected. Running on CPU.")
+        elif (torch.cuda.device_count() > 1) & (not share_GPU):
+            print("Multiple GPUs detected but single GPU selected. Setting up the simulation on {}".format(
+                "cuda:"+str(gpu_sel)))
+            device = torch.device("cuda:"+str(gpu_sel))
+            if gpu_mem_frac is not None:
+                # decrese or comment out memory fraction if more is available (the smaller the better)
+                torch.cuda.set_per_process_memory_fraction(
+                    gpu_mem_frac, device=device)
+        else:
+            if torch.cuda.is_available():
+                print("Single GPU detected. Setting up the simulation there.")
+                device = torch.device("cuda:"+str(torch.cuda.current_device()))
+                # thr 1: None, thr 2: 0.8, thr 5: 0.5, thr 10: None
+                if gpu_mem_frac is not None:
+                    # decrese or comment out memory fraction if more is available (the smaller the better)
+                    torch.cuda.set_per_process_memory_fraction(
+                        gpu_mem_frac, device=device)
+            else:
+                print("No GPU detected. Running on CPU.")
+                device = torch.device("cpu")
+
+        return device
 
     def _prepareDataset(self):
         print("Preparing dataset")
@@ -1032,7 +1080,7 @@ class WiN_GUI_Window(QMainWindow):
             self.output_data.shape[0], self.output_data.shape[-1]))
         # the classifier is trained on 1000ms duration with dt=1ms
         targetDuration = 1.0  # sec
-        duration = len(self.input_data) * self.dt # ms
+        duration = len(self.input_data) * self.dt  # ms
         dt_spk_classifier = 1E-3
         batch_size = 128
         pitch = 100
@@ -1040,46 +1088,61 @@ class WiN_GUI_Window(QMainWindow):
         if self.dt != dt_spk_classifier:
             ratio = self.dt/dt_spk_classifier
             # we have to resample
-            neuronSpiketimesDenseUpsampled = torch.zeros((int(neuronSpikeTimesDense.shape[0]*ratio), neuronSpikeTimesDense.shape[-1]))
+            neuronSpiketimesDenseUpsampled = torch.zeros(
+                (int(neuronSpikeTimesDense.shape[0]*ratio), neuronSpikeTimesDense.shape[-1]))
             for sensor_idx in range(neuronSpikeTimesDense.shape[-1]):
-                spk_idc = np.where(neuronSpikeTimesDense[:, sensor_idx] == 1)[0]
-                spk_idc_upsampled = [int(i * ratio) for i in spk_idc]  # up- or downsample
-                neuronSpiketimesDenseUpsampled[spk_idc_upsampled, sensor_idx] = 1.0
+                spk_idc = np.where(
+                    neuronSpikeTimesDense[:, sensor_idx] == 1)[0]
+                spk_idc_upsampled = [int(i * ratio)
+                                     for i in spk_idc]  # up- or downsample
+                neuronSpiketimesDenseUpsampled[spk_idc_upsampled,
+                                               sensor_idx] = 1.0
             # write the new spiketimes to the old data structure
-            neuronSpikeTimesDense = neuronSpiketimesDenseUpsampled  # now in the dt expected for out spike classifier
+            # now in the dt expected for out spike classifier
+            neuronSpikeTimesDense = neuronSpiketimesDenseUpsampled
 
-        sensor_idc = range(neuronSpikeTimesDense.size(1))  # if we have to change them we just overwrite them later
+        # if we have to change them we just overwrite them later
+        sensor_idc = range(neuronSpikeTimesDense.size(1))
         if duration < targetDuration:
             # we need to repeat the input until we reach targetDuration
             # Calculate how many times to repeat and how many extra entries are needed
             repeats = 1000 // neuronSpikeTimesDense.size(0)
             remainder = 1000 % neuronSpikeTimesDense.size(0)
-            neuronSpikeTimesDenseRepeted = torch.zeros((int(targetDuration*1E3), neuronSpikeTimesDense.shape[1]))
+            neuronSpikeTimesDenseRepeted = torch.zeros(
+                (int(targetDuration*1E3), neuronSpikeTimesDense.shape[1]))
             for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
                 # Repeat and concatenate the tensor to get exactly 1000 entries
-                neuronSpikeTimesDenseRepeted[:, sensor_idx] = torch.cat([neuronSpikeTimesDense[:, sensor_idx].repeat(repeats), neuronSpikeTimesDense[:remainder, sensor_idx]])
+                neuronSpikeTimesDenseRepeted[:, sensor_idx] = torch.cat(
+                    [neuronSpikeTimesDense[:, sensor_idx].repeat(repeats), neuronSpikeTimesDense[:remainder, sensor_idx]])
             pass
         elif duration > targetDuration:
             # we need to implement a sliding window to always have targetDuration length
             nb_splits = int((duration-targetDuration)*1E3/pitch)
             start_points = range(0, int((duration-targetDuration)*1E3), pitch)
-            neuronSpikeTimesDenseRepeted = torch.zeros((int(targetDuration*1E3), nb_splits*neuronSpikeTimesDense.shape[1]))
-            sensor_idc = new_list = [i for i in range(neuronSpikeTimesDense.shape[1]) for _ in range(nb_splits)]
+            neuronSpikeTimesDenseRepeted = torch.zeros(
+                (int(targetDuration*1E3), nb_splits*neuronSpikeTimesDense.shape[1]))
+            sensor_idc = new_list = [i for i in range(
+                neuronSpikeTimesDense.shape[1]) for _ in range(nb_splits)]
             # now we can fill up the new list with the data from the sliding window
             for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
                 for split_idx, start in enumerate(start_points):
-                    neuronSpikeTimesDenseRepeted[:, sensor_idx * nb_splits + split_idx] = neuronSpikeTimesDense[start:int(start+targetDuration*1E3), sensor_idx]
+                    neuronSpikeTimesDenseRepeted[:, sensor_idx * nb_splits +
+                                                 split_idx] = neuronSpikeTimesDense[start:int(start+targetDuration*1E3), sensor_idx]
         # now we can write this again to our original data
         neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
 
         # data is prepared, let's make the dataset
-        dataset = DataLoader(neuronSpikeTimesDense, batch_size=batch_size, shuffle=False)
-        return dataset, sensor_idc
+        ds_test = TensorDataset(neuronSpikeTimesDense.transpose(
+            0, 1), torch.as_tensor(sensor_idc))
+        generator = DataLoader(
+            ds_test, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
+        return generator
 
     def _updateSpikePatternClassification(self):
         print("Updating spike pattern classification")
-        dataset, sensor_idc = self._prepareDataset()
-        self.spikePatternClassification(dataset, sensor_idc)
+        generator = self._prepareDataset()
+        self.spikePatternClassification(generator)
+
 
 def main():
     """EncodingGUI's main function."""
