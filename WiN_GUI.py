@@ -4,13 +4,12 @@ It only supports datasets with a specific structure. For more details see the RE
 It is possible to change the neuron model and its parameters on the flight.
 It also provides auditory feedback on the encoding result.
 
-You can find a detailed description of the GUI here: https://www.sciencedirect.com/science/article/pii/S2352711024001304
+You can find a detailed description of the GUI here: [TODO inlcude link to publication!]
 
 Simon F. Muller-Cleve
 Fernando M. Quintana
 Vittorio Fra
 """
-
 
 import logging
 import sys
@@ -31,6 +30,7 @@ from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QFileDialog, QGridLayout, QLabel, QMainWindow,
                              QPushButton, QSlider, QSplitter, QWidget)
+from torch.utils.data import DataLoader
 
 from utils.data_management import (create_directory, load_data,
                                    preprocess_data, split_data)
@@ -134,6 +134,7 @@ class WiN_GUI_Window(QMainWindow):
     simulate_event = QtCore.pyqtSignal()  # Signal used to trigger a new simulation
     # Signal used to trigger generation of new audio
     audio_event = QtCore.pyqtSignal()
+    classify_spikepattern = QtCore.pyqtSignal()
 
     def __init__(self):
 
@@ -199,8 +200,10 @@ class WiN_GUI_Window(QMainWindow):
         self.createPreprocessingSelection()
         self.createAudioPushButtons()
         self.createParamSlider()
+        # self.createSpikePatternVisualization()
         self.draw_event.connect(self.draw)
         self.audio_event.connect(self.spikeToAudio)
+        self.classify_spikepattern.connect(self.spikePatternClassification)
 
         # Encoding simulator creation
         self.encoding_calc = EncodingCalc(self)
@@ -209,6 +212,7 @@ class WiN_GUI_Window(QMainWindow):
         # When simulation finished, plot the result
         self.encoding_calc.signalData.connect(self._updateCanvas)
         self.encoding_calc.signalData.connect(self._updateSpikesToAudio)
+        self.encoding_calc.signalData.connect(self._updateSpikePatternClassification)
         self.encoding_calc.moveToThread(self.thread)
 
         self.thread.start()
@@ -475,7 +479,7 @@ class WiN_GUI_Window(QMainWindow):
             )
             self.sliders.append(slider)
             self.sliderLayout.addWidget(slider, id + 2, 1)
-            
+
             # create label for each slider
             # # TODO here we assume that the parameter name is always 'x_n' or does not contain '_' at all
             # # TODO this is not ideal, but in most cases variables have only a single digit subscript
@@ -580,6 +584,10 @@ class WiN_GUI_Window(QMainWindow):
         self.parametersLayout.addLayout(
             self.preprocessingLayout, 1, 0, Qt.AlignmentFlag.AlignTop
         )
+
+    def createSpikePatternVisualizer(self):
+        print("Creating spikepattern classification visualiztion.")
+        pass
 
     @QtCore.pyqtSlot()
     def draw(self):
@@ -840,7 +848,7 @@ class WiN_GUI_Window(QMainWindow):
             startTrialAtNull=self.startTrialAtNull,
         )
         if 'example_braille_data' in self.dataFilename:
-            self.dt = 1E-2
+            self.dt = 1E-2 # 1/40  # 25Hz in sec
         self.channels = np.ones(self.data.shape[-1], dtype=bool)
         self.data_default = self.data.numpy()
         self.timestamps_default = self.timestamps.copy()
@@ -1000,10 +1008,10 @@ class WiN_GUI_Window(QMainWindow):
         '''
         Triggers the calculation of the spike to audio conversion.
         '''
-        neuronSpikeTimesSparse = np.reshape(self.output_data[:, 0, :, :], (
+        neuronSpikeTimesDense = np.reshape(self.output_data[:, 0, :, :], (
             self.output_data.shape[0], self.output_data.shape[-1]))  # TODO call spikes by key?
         # convert sparse representation to spike times
-        neuronSpikeTimes = np.where(neuronSpikeTimesSparse == 1)[0] * self.dt
+        neuronSpikeTimes = np.where(neuronSpikeTimesDense == 1)[0] * self.dt
         audio_duration = len(self.input_data) * self.dt
 
         audio = self.spikeToAudio(
@@ -1011,6 +1019,67 @@ class WiN_GUI_Window(QMainWindow):
 
     # END SPIKE TO AUDIO
 
+    ############################
+    # SPIKE PATTERN CLASSIFIER #
+    ############################
+    def spikePatternClassification(self, dataset, sensor_idc):
+        # now we can work through the created datset!
+        pass
+
+    def _prepareDataset(self):
+        print("Preparing dataset")
+        neuronSpikeTimesDense = np.reshape(self.output_data[:, 0, :, :], (
+            self.output_data.shape[0], self.output_data.shape[-1]))
+        # the classifier is trained on 1000ms duration with dt=1ms
+        targetDuration = 1.0  # sec
+        duration = len(self.input_data) * self.dt # ms
+        dt_spk_classifier = 1E-3
+        batch_size = 128
+        pitch = 100
+        # ensure data is in 1ms time steps
+        if self.dt != dt_spk_classifier:
+            ratio = self.dt/dt_spk_classifier
+            # we have to resample
+            neuronSpiketimesDenseUpsampled = torch.zeros((int(neuronSpikeTimesDense.shape[0]*ratio), neuronSpikeTimesDense.shape[-1]))
+            for sensor_idx in range(neuronSpikeTimesDense.shape[-1]):
+                spk_idc = np.where(neuronSpikeTimesDense[:, sensor_idx] == 1)[0]
+                spk_idc_upsampled = [int(i * ratio) for i in spk_idc]  # up- or downsample
+                neuronSpiketimesDenseUpsampled[spk_idc_upsampled, sensor_idx] = 1.0
+            # write the new spiketimes to the old data structure
+            neuronSpikeTimesDense = neuronSpiketimesDenseUpsampled  # now in the dt expected for out spike classifier
+
+        sensor_idc = range(neuronSpikeTimesDense.size(1))  # if we have to change them we just overwrite them later
+        if duration < targetDuration:
+            # we need to repeat the input until we reach targetDuration
+            # Calculate how many times to repeat and how many extra entries are needed
+            repeats = 1000 // neuronSpikeTimesDense.size(0)
+            remainder = 1000 % neuronSpikeTimesDense.size(0)
+            neuronSpikeTimesDenseRepeted = torch.zeros((int(targetDuration*1E3), neuronSpikeTimesDense.shape[1]))
+            for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
+                # Repeat and concatenate the tensor to get exactly 1000 entries
+                neuronSpikeTimesDenseRepeted[:, sensor_idx] = torch.cat([neuronSpikeTimesDense[:, sensor_idx].repeat(repeats), neuronSpikeTimesDense[:remainder, sensor_idx]])
+            pass
+        elif duration > targetDuration:
+            # we need to implement a sliding window to always have targetDuration length
+            nb_splits = int((duration-targetDuration)*1E3/pitch)
+            start_points = range(0, int((duration-targetDuration)*1E3), pitch)
+            neuronSpikeTimesDenseRepeted = torch.zeros((int(targetDuration*1E3), nb_splits*neuronSpikeTimesDense.shape[1]))
+            sensor_idc = new_list = [i for i in range(neuronSpikeTimesDense.shape[1]) for _ in range(nb_splits)]
+            # now we can fill up the new list with the data from the sliding window
+            for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
+                for split_idx, start in enumerate(start_points):
+                    neuronSpikeTimesDenseRepeted[:, sensor_idx * nb_splits + split_idx] = neuronSpikeTimesDense[start:int(start+targetDuration*1E3), sensor_idx]
+        # now we can write this again to our original data
+        neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
+
+        # data is prepared, let's make the dataset
+        dataset = DataLoader(neuronSpikeTimesDense, batch_size=batch_size, shuffle=False)
+        return dataset, sensor_idc
+
+    def _updateSpikePatternClassification(self):
+        print("Updating spike pattern classification")
+        dataset, sensor_idc = self._prepareDataset()
+        self.spikePatternClassification(dataset, sensor_idc)
 
 def main():
     """EncodingGUI's main function."""
