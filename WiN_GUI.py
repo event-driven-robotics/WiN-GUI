@@ -29,7 +29,8 @@ from PyQt6.QtCore import QObject, Qt, QThread, QUrl
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QFileDialog, QGridLayout, QLabel, QMainWindow,
-                             QPushButton, QSlider, QSplitter, QWidget)
+                             QPushButton, QSlider, QSplitter, QTableWidget,
+                             QTableWidgetItem, QTabWidget, QWidget)
 from torch.utils.data import DataLoader, TensorDataset
 
 from utils.data_management import (create_directory, load_data,
@@ -176,45 +177,55 @@ class WiN_GUI_Window(QMainWindow):
         self.dataFilename = None
         self.neuronStateVariables = None
 
-        # set the main layout to grid
+        # Init the main layout
         self.generalLayout = QSplitter(Qt.Orientation.Horizontal)
         self.setCentralWidget(self.generalLayout)
 
-        # Canvas pane
-        self.canvasLayout = QGridLayout()
-        canvasWidget = QWidget(self)
-        canvasWidget.setLayout(self.canvasLayout)
-        self.generalLayout.addWidget(canvasWidget)
+        # Add tabs
+        self.tabs = QTabWidget()
+        self.tab1 = QWidget()
+        self.tab2 = QWidget()
 
-        # Parameters pane
+        self.tabs.addTab(self.tab1, "Data Visualization")
+        self.tabs.addTab(self.tab2, "Spike Pattern Visualizer")
+        
+        # Add tabs to the main layout
+        self.generalLayout.addWidget(self.tabs)
+
+        # Canvas pane in the first tab
+        self.canvasLayout = QGridLayout(self.tab1)
+        self.tab1.setLayout(self.canvasLayout)
+
+        # Spike Pattern Visualizer in the second tab
+        self.createSpikePatternVisualizer()
+
+        # Parameters pane (always visible on the right side)
         self.parametersLayout = QGridLayout()
         parametersWidget = QWidget(self)
         parametersWidget.setLayout(self.parametersLayout)
         self.generalLayout.addWidget(parametersWidget)
 
-        # init GUI
-        self.createCanvas()
+        # Initialize GUI elements
+        self.createCanvas()  # Now in the first tab
         self.loadParameter()
         self.createModelSelection()
         self.createDataSelection()
         self.createPreprocessingSelection()
         self.createAudioPushButtons()
         self.createParamSlider()
-        # self.createSpikePatternVisualization()
+
+        # Encoding simulator creation and threading
+        self.encoding_calc = EncodingCalc(self)
+        self.thread = QThread(parent=self)
+        self.encoding_calc.moveToThread(self.thread)
+
+        # Connect signals and start the thread
         self.draw_event.connect(self.draw)
         self.audio_event.connect(self.spikeToAudio)
         self.classify_spikepattern.connect(self.spikePatternClassification)
-
-        # Encoding simulator creation
-        self.encoding_calc = EncodingCalc(self)
-        self.thread = QThread(parent=self)
-
-        # When simulation finished, plot the result
         self.encoding_calc.signalData.connect(self._updateCanvas)
         self.encoding_calc.signalData.connect(self._updateSpikesToAudio)
-        self.encoding_calc.signalData.connect(
-            self._updateSpikePatternClassification)
-        self.encoding_calc.moveToThread(self.thread)
+        self.encoding_calc.signalData.connect(self._updateSpikePatternClassification)
 
         self.thread.start()
 
@@ -587,8 +598,20 @@ class WiN_GUI_Window(QMainWindow):
         )
 
     def createSpikePatternVisualizer(self):
-        print("Creating spikepattern classification visualiztion.")
-        pass
+        """Create a table for spike pattern visualization in the second tab."""
+        self.spikePatternTable = QTableWidget()
+        self.spikePatternTable.setRowCount(10)  # Example rows, adjust as needed
+        self.spikePatternTable.setColumnCount(2)  # Two columns: ID and Spike Pattern
+        self.spikePatternTable.setHorizontalHeaderLabels(["ID", "Spike Pattern"])
+
+        # Populate the table with example data (can be replaced with real data later)
+        for i in range(10):
+            self.spikePatternTable.setItem(i, 0, QTableWidgetItem(str(i)))
+            self.spikePatternTable.setItem(i, 1, QTableWidgetItem("Pattern " + str(i)))
+
+        layout = QGridLayout()
+        layout.addWidget(self.spikePatternTable, 0, 0)
+        self.tab2.setLayout(layout)
 
     @QtCore.pyqtSlot()
     def draw(self):
@@ -1030,8 +1053,9 @@ class WiN_GUI_Window(QMainWindow):
         predictions_list = []
         for spikes, sensor_ids in generator:
             spikes = spikes.to(device, non_blocking=True)
-
+            # get the classification and write it to prediction_list together with the sensor ID
             pass
+        # seperate all the predictions according to the sensor ID and get the most often predicted label
 
     def _checkCuda(self, share_GPU=False, gpu_sel=0, gpu_mem_frac=None):
         """Check for available GPU and distribute work (if needed/wanted)"""
