@@ -1100,66 +1100,53 @@ class WiN_GUI_Window(QMainWindow):
 
     def _prepareDataset(self):
         print("Preparing dataset")
-        neuronSpikeTimesDense = np.reshape(self.output_data[:, 0, :, :], (
-            self.output_data.shape[0], self.output_data.shape[-1]))
+        neuronSpikeTimesDense = np.reshape(self.output_data[:, 0, :, :], (self.output_data.shape[0], self.output_data.shape[-1]))
+        max_nb_samples = 1000
         # the classifier is trained on 1000ms duration with dt=1ms
-        targetDuration = 1.0  # sec
-        duration = len(self.input_data) * self.dt  # ms
-        dt_spk_classifier = 1E-3
+        # targetDuration = 1.0  # sec
+        # duration = len(self.input_data) * self.dt  # ms
+        # dt_spk_classifier = 1E-3
         batch_size = 128
         pitch = 100
-        # ensure data is in 1ms time steps
-        if self.dt != dt_spk_classifier:
-            ratio = self.dt/dt_spk_classifier
-            # we have to resample
-            neuronSpiketimesDenseUpsampled = torch.zeros(
-                (int(neuronSpikeTimesDense.shape[0]*ratio), neuronSpikeTimesDense.shape[-1]))
-            for sensor_idx in range(neuronSpikeTimesDense.shape[-1]):
-                spk_idc = np.where(
-                    neuronSpikeTimesDense[:, sensor_idx] == 1)[0]
-                spk_idc_upsampled = [int(i * ratio)
-                                     for i in spk_idc]  # up- or downsample
-                neuronSpiketimesDenseUpsampled[spk_idc_upsampled,
-                                               sensor_idx] = 1.0
-            # write the new spiketimes to the old data structure
-            # now in the dt expected for out spike classifier
-            neuronSpikeTimesDense = neuronSpiketimesDenseUpsampled
 
-        # if we have to change them we just overwrite them later
-        sensor_idc = range(neuronSpikeTimesDense.size(1))
-        if duration < targetDuration:
-            # we need to repeat the input until we reach targetDuration
-            # Calculate how many times to repeat and how many extra entries are needed
-            repeats = 1000 // neuronSpikeTimesDense.size(0)
-            remainder = 1000 % neuronSpikeTimesDense.size(0)
-            neuronSpikeTimesDenseRepeted = torch.zeros(
-                (int(targetDuration*1E3), neuronSpikeTimesDense.shape[1]))
+        if neuronSpikeTimesDense.shape[0] < max_nb_samples:
+            # Create sensor ID list
+            sensor_idc = [i for i in range(neuronSpikeTimesDense.shape[-1])]
+            # we need the data to be repeated
+            repeats = 1000 // neuronSpikeTimesDense.shape[0]
+            remainder = 1000 % neuronSpikeTimesDense.shape[0]
+
+            # Create an array of zeros
+            neuronSpikeTimesDenseRepeted = np.zeros((max_nb_samples, neuronSpikeTimesDense.shape[1]))
+
             for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
-                # Repeat and concatenate the tensor to get exactly 1000 entries
-                neuronSpikeTimesDenseRepeted[:, sensor_idx] = torch.cat(
-                    [neuronSpikeTimesDense[:, sensor_idx].repeat(repeats), neuronSpikeTimesDense[:remainder, sensor_idx]])
-            pass
-        elif duration > targetDuration:
-            # we need to implement a sliding window to always have targetDuration length
-            nb_splits = int((duration-targetDuration)*1E3/pitch)
-            start_points = range(0, int((duration-targetDuration)*1E3), pitch)
-            neuronSpikeTimesDenseRepeted = torch.zeros(
-                (int(targetDuration*1E3), nb_splits*neuronSpikeTimesDense.shape[1]))
-            sensor_idc = new_list = [i for i in range(
-                neuronSpikeTimesDense.shape[1]) for _ in range(nb_splits)]
-            # now we can fill up the new list with the data from the sliding window
+                # Repeat and concatenate the array to get exactly 1000 entries
+                neuronSpikeTimesDenseRepeted[:, sensor_idx] = np.concatenate([np.repeat(neuronSpikeTimesDense[:, sensor_idx], repeats), neuronSpikeTimesDense[:remainder, sensor_idx]])
+
+            neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
+
+        elif neuronSpikeTimesDense.shape[0] > max_nb_samples:
+            nb_splits = (neuronSpikeTimesDense.shape[0] - max_nb_samples) // pitch + 1
+
+            # Create sensor ID list
+            sensor_idc = [sensor_idx for sensor_idx in range(neuronSpikeTimesDense.shape[1]) for _ in range(nb_splits)]
+
+            start_points = range(0, neuronSpikeTimesDense.shape[0] - max_nb_samples + 1, pitch)
+            
+            # Pre-allocate array for the sliced data
+            neuronSpikeTimesDenseRepeted = np.zeros((max_nb_samples, nb_splits * neuronSpikeTimesDense.shape[1]))
+            
+            # Fill the new array using sliding window
             for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
                 for split_idx, start in enumerate(start_points):
-                    neuronSpikeTimesDenseRepeted[:, sensor_idx * nb_splits +
-                                                 split_idx] = neuronSpikeTimesDense[start:int(start+targetDuration*1E3), sensor_idx]
-        # now we can write this again to our original data
-        neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
+                    neuronSpikeTimesDenseRepeted[:, sensor_idx * nb_splits + split_idx] = neuronSpikeTimesDense[start:start + max_nb_samples, sensor_idx]
+            
+            neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
 
         # data is prepared, let's make the dataset
-        ds_test = TensorDataset(neuronSpikeTimesDense.transpose(
-            0, 1), torch.as_tensor(sensor_idc))
-        generator = DataLoader(
-            ds_test, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
+        ds_test = TensorDataset(torch.as_tensor(neuronSpikeTimesDense.transpose(1, 0)), torch.as_tensor(sensor_idc))
+        generator = DataLoader(ds_test, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
+        
         return generator
 
     def _updateSpikePatternClassification(self):
