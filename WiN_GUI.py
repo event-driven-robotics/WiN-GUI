@@ -4,7 +4,7 @@ It only supports datasets with a specific structure. For more details see the RE
 It is possible to change the neuron model and its parameters on the flight.
 It also provides auditory feedback on the encoding result.
 
-You can find a detailed description of the GUI here: [TODO inlcude link to publication!]
+You can find a detailed description of the GUI here: https://www.sciencedirect.com/science/article/pii/S2352711024001304
 
 Simon F. Muller-Cleve
 Fernando M. Quintana
