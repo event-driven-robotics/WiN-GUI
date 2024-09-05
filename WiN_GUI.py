@@ -188,7 +188,7 @@ class WiN_GUI_Window(QMainWindow):
 
         self.tabs.addTab(self.tab1, "Data Visualization")
         self.tabs.addTab(self.tab2, "Spike Pattern Visualizer")
-        
+
         # Add tabs to the main layout
         self.generalLayout.addWidget(self.tabs)
 
@@ -225,7 +225,8 @@ class WiN_GUI_Window(QMainWindow):
         self.classify_spikepattern.connect(self.spikePatternClassification)
         self.encoding_calc.signalData.connect(self._updateCanvas)
         self.encoding_calc.signalData.connect(self._updateSpikesToAudio)
-        self.encoding_calc.signalData.connect(self._updateSpikePatternClassification)
+        self.encoding_calc.signalData.connect(
+            self._updateSpikePatternClassification)
 
         self.thread.start()
 
@@ -600,14 +601,18 @@ class WiN_GUI_Window(QMainWindow):
     def createSpikePatternVisualizer(self):
         """Create a table for spike pattern visualization in the second tab."""
         self.spikePatternTable = QTableWidget()
-        self.spikePatternTable.setRowCount(10)  # Example rows, adjust as needed
-        self.spikePatternTable.setColumnCount(2)  # Two columns: ID and Spike Pattern
-        self.spikePatternTable.setHorizontalHeaderLabels(["ID", "Spike Pattern"])
+        # Example rows, adjust as needed
+        self.spikePatternTable.setRowCount(10)
+        # Two columns: ID and Spike Pattern
+        self.spikePatternTable.setColumnCount(2)
+        self.spikePatternTable.setHorizontalHeaderLabels(
+            ["ID", "Spike Pattern"])
 
         # Populate the table with example data (can be replaced with real data later)
         for i in range(10):
             self.spikePatternTable.setItem(i, 0, QTableWidgetItem(str(i)))
-            self.spikePatternTable.setItem(i, 1, QTableWidgetItem("Pattern " + str(i)))
+            self.spikePatternTable.setItem(
+                i, 1, QTableWidgetItem("Pattern " + str(i)))
 
         layout = QGridLayout()
         layout.addWidget(self.spikePatternTable, 0, 0)
@@ -1100,7 +1105,8 @@ class WiN_GUI_Window(QMainWindow):
 
     def _prepareDataset(self):
         print("Preparing dataset")
-        neuronSpikeTimesDense = np.reshape(self.output_data[:, 0, :, :], (self.output_data.shape[0], self.output_data.shape[-1]))
+        neuronSpikeTimesDense = np.reshape(
+            self.output_data[:, 0, :, :], (self.output_data.shape[0], self.output_data.shape[-1]))
         max_nb_samples = 1000
         # the classifier is trained on 1000ms duration with dt=1ms
         # targetDuration = 1.0  # sec
@@ -1117,36 +1123,48 @@ class WiN_GUI_Window(QMainWindow):
             remainder = 1000 % neuronSpikeTimesDense.shape[0]
 
             # Create an array of zeros
-            neuronSpikeTimesDenseRepeted = np.zeros((max_nb_samples, neuronSpikeTimesDense.shape[1]))
+            neuronSpikeTimesDenseRepeted = np.zeros(
+                (max_nb_samples, neuronSpikeTimesDense.shape[1]))
 
             for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
                 # Repeat and concatenate the array to get exactly 1000 entries
-                neuronSpikeTimesDenseRepeted[:, sensor_idx] = np.concatenate([np.repeat(neuronSpikeTimesDense[:, sensor_idx], repeats), neuronSpikeTimesDense[:remainder, sensor_idx]])
+                neuronSpikeTimesDenseRepeted[:, sensor_idx] = np.concatenate([np.repeat(
+                    neuronSpikeTimesDense[:, sensor_idx], repeats), neuronSpikeTimesDense[:remainder, sensor_idx]])
 
             neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
 
         elif neuronSpikeTimesDense.shape[0] > max_nb_samples:
-            nb_splits = (neuronSpikeTimesDense.shape[0] - max_nb_samples) // pitch + 1
+            nb_splits = (
+                neuronSpikeTimesDense.shape[0] - max_nb_samples) // pitch + 1
 
             # Create sensor ID list
-            sensor_idc = [sensor_idx for sensor_idx in range(neuronSpikeTimesDense.shape[1]) for _ in range(nb_splits)]
+            sensor_idc = [sensor_idx for sensor_idx in range(
+                neuronSpikeTimesDense.shape[1]) for _ in range(nb_splits)]
 
-            start_points = range(0, neuronSpikeTimesDense.shape[0] - max_nb_samples + 1, pitch)
-            
+            start_points = range(
+                0, neuronSpikeTimesDense.shape[0] - max_nb_samples + 1, pitch)
+
             # Pre-allocate array for the sliced data
-            neuronSpikeTimesDenseRepeted = np.zeros((max_nb_samples, nb_splits * neuronSpikeTimesDense.shape[1]))
-            
+            neuronSpikeTimesDenseRepeted = np.zeros(
+                (max_nb_samples, nb_splits * neuronSpikeTimesDense.shape[1]))
+
             # Fill the new array using sliding window
             for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
                 for split_idx, start in enumerate(start_points):
-                    neuronSpikeTimesDenseRepeted[:, sensor_idx * nb_splits + split_idx] = neuronSpikeTimesDense[start:start + max_nb_samples, sensor_idx]
-            
+                    neuronSpikeTimesDenseRepeted[:, sensor_idx * nb_splits +
+                                                 split_idx] = neuronSpikeTimesDense[start:start + max_nb_samples, sensor_idx]
+
             neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
 
+        else:
+            sensor_idc = [i for i in range(neuronSpikeTimesDense.shape[-1])]
+
         # data is prepared, let's make the dataset
-        ds_test = TensorDataset(torch.as_tensor(neuronSpikeTimesDense.transpose(1, 0)), torch.as_tensor(sensor_idc))
-        generator = DataLoader(ds_test, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
-        
+        ds_test = TensorDataset(torch.as_tensor(
+            neuronSpikeTimesDense.transpose(1, 0)), torch.as_tensor(sensor_idc))
+        generator = DataLoader(
+            ds_test, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
+
         return generator
 
     def _updateSpikePatternClassification(self):
