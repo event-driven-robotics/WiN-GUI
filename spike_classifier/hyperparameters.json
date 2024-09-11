@@ -1,0 +1,1 @@
+{"nb_hidden": 250.0, "lr": 0.001, "fwd_weights_std": 1.3, "rec_weights_std": 0.04, "tau_mem": 0.01, "tau_syn": 0.005, "batch_size": 64}
