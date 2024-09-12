@@ -24,6 +24,7 @@ from matplotlib.figure import Figure
 from matplotlib.pyplot import cm
 from pydub import AudioSegment
 from pydub.generators import Sawtooth
+from PyQt6.QtGui import QColor
 from PyQt6 import QtCore
 from PyQt6.QtCore import QObject, Qt, QThread, QUrl
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
@@ -31,11 +32,11 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QFileDialog, QGridLayout, QLabel, QMainWindow,
                              QPushButton, QSlider, QSplitter, QTableWidget,
                              QTableWidgetItem, QTabWidget, QWidget)
-from torch.utils.data import DataLoader, TensorDataset
 
 from utils.data_management import (create_directory, load_data,
                                    preprocess_data, split_data)
 from utils.neuron_models import IZ_neuron, LIF_neuron, MN_neuron, RLIF_neuron
+from utils.spike_pattern_classifier import classifySpikes, prepareDataset
 
 WINDOW_WIDTH, WINDOW_HEIGTH = 1500, 750
 DISPLAY_HEIGHT = 35
@@ -135,7 +136,7 @@ class WiN_GUI_Window(QMainWindow):
     simulate_event = QtCore.pyqtSignal()  # Signal used to trigger a new simulation
     # Signal used to trigger generation of new audio
     audio_event = QtCore.pyqtSignal()
-    classify_spikepattern = QtCore.pyqtSignal()
+    write_event = QtCore.pyqtSignal()
 
     def __init__(self):
 
@@ -220,9 +221,9 @@ class WiN_GUI_Window(QMainWindow):
         self.encoding_calc.moveToThread(self.thread)
 
         # Connect signals and start the thread
-        self.draw_event.connect(self.draw)
+        self.draw_event.connect(self.drawCanvas)
         self.audio_event.connect(self.spikeToAudio)
-        self.classify_spikepattern.connect(self.spikePatternClassification)
+        self.write_event.connect(self.writeTable)
         self.encoding_calc.signalData.connect(self._updateCanvas)
         self.encoding_calc.signalData.connect(self._updateSpikesToAudio)
         self.encoding_calc.signalData.connect(
@@ -324,46 +325,6 @@ class WiN_GUI_Window(QMainWindow):
         if self.dataFilename == None:
             # TODO create textbox
             print('Show only text.')
-
-        # TODO here we can include a custom layout for the braille data, but have to ensure we can also show splitted data
-        # elif 'example_braille_data' in self.dataFilename:
-        #     self.dt = 1E-2
-        #     position_list = [[3, 1], [3, 2], [3, 3], [2, 4, 2, 1], [2, 0, 2, 1], [
-        #         2, 3], [2, 2], [2, 1], [1, 1], [1, 2], [1, 3], [0, 2]]
-        #     # TODO should the buttons have the color of the traces?
-        #     for i in range(len(self.channels)):
-        #         checkbox = QPushButton(str(i))
-        #         checkbox.setCheckable(True)
-        #         checkbox.setChecked(True)
-        #         checkbox.setStyleSheet(
-        #             "background-color : lightgreen;"
-        #             "border-top-left-radius : 25px;"
-        #             "border-top-right-radius : 25px;"
-        #             "border-bottom-left-radius : 25px;"
-        #             "border-bottom-right-radius : 25px"
-        #         )
-        #         checkbox.clicked.connect(
-        #             lambda value, id=i: self._updateChannelCheckbox(value, id))
-        #         self.channel_box.append(checkbox)
-        #         # set individual size for the most outer buttons
-        #         if i == 3 or i == 4:
-        #             checkbox.setFixedSize(50, 120)
-        #             self.channel_grid.addWidget(
-        #                 checkbox,
-        #                 position_list[i][0],
-        #                 position_list[i][1],
-        #                 position_list[i][2],
-        #                 position_list[i][3],
-        #                 alignment=Qt.AlignmentFlag.AlignCenter,
-        #             )
-        #         else:
-        #             checkbox.setFixedSize(50, 60)
-        #             self.channel_grid.addWidget(
-        #                 checkbox,
-        #                 position_list[i][0],
-        #                 position_list[i][1],
-        #                 alignment=Qt.AlignmentFlag.AlignCenter,
-        #             )
         else:
             position_list = []
             # creating the default layout as a grid (pref. height over width)
@@ -419,7 +380,7 @@ class WiN_GUI_Window(QMainWindow):
         self.dialRepetition.setMinimum(0)
         self.dialRepetition.setMaximum(0)
         self.dialRepetition.setValue(self.selectedRepetition)
-        self.dialRepetition.valueChanged.connect(self._updateDialRepetition)
+        self.dialRepetition.sliderReleased.connect(self._updateDialRepetition)
         dataSelectionLayout.addWidget(self.dialRepetition, 2, 0)
 
         # TODO only needed if differnet labels given (read from data)
@@ -487,9 +448,13 @@ class WiN_GUI_Window(QMainWindow):
                 int(abs(np.diff(param_values[:2])[0]) * self.factor[id] / 20)
             )  # display n steps
             slider.setSingleStep(self.steps_size[id])  # read step value
-            slider.valueChanged.connect(
-                lambda value, id=id: self._updateParamSlider(value, id)
+
+            # Connect the sliderReleased signal to the event handler
+            slider.sliderReleased.connect(
+                lambda id=id, slider=slider: self._updateParamSlider(
+                    slider.value(), id)
             )
+
             self.sliders.append(slider)
             self.sliderLayout.addWidget(slider, id + 2, 1)
 
@@ -602,24 +567,40 @@ class WiN_GUI_Window(QMainWindow):
         """Create a table for spike pattern visualization in the second tab."""
         self.spikePatternTable = QTableWidget()
         # Example rows, adjust as needed
-        self.spikePatternTable.setRowCount(10)
+        self.spikePatternTable.setRowCount(1)
         # Two columns: ID and Spike Pattern
-        self.spikePatternTable.setColumnCount(2)
+        self.spikePatternTable.setColumnCount(22)
         self.spikePatternTable.setHorizontalHeaderLabels(
-            ["ID", "Spike Pattern"])
-
-        # Populate the table with example data (can be replaced with real data later)
-        for i in range(10):
-            self.spikePatternTable.setItem(i, 0, QTableWidgetItem(str(i)))
-            self.spikePatternTable.setItem(
-                i, 1, QTableWidgetItem("Pattern " + str(i)))
+            ["ID",
+             "Spike Pattern",
+             "Tonic spiking",
+             "Class 1",
+             "Spike frequency\nadaptation",
+             "Phasic spiking",
+             "Accommodation",
+             "Threshold\nvariability",
+             "Rebound spike",
+             "Class 2",
+             "Integrator",
+             "Input\nbistability",
+             "Hyperpolarizing\nspiking",
+             "Hyperpolarizing\nbursting",
+             "Tonic bursting",
+             "Phasic bursting",
+             "Rebound burst",
+             "Mixed mode",
+             "Afterpotentials",
+             "Basal\nbistability",
+             "Preferred\nfrequency",
+             "Spike latency"
+             ])
 
         layout = QGridLayout()
         layout.addWidget(self.spikePatternTable, 0, 0)
         self.tab2.setLayout(layout)
 
     @QtCore.pyqtSlot()
-    def draw(self):
+    def drawCanvas(self):
         """
         Update the plots.
         """
@@ -770,6 +751,37 @@ class WiN_GUI_Window(QMainWindow):
         if layout != None:
             layout.removeItem(sublayout)
 
+    @QtCore.pyqtSlot()
+    def writeTable(self):
+        """Update the spike pattern visualizer."""
+        # Clear the table
+        self.spikePatternTable.setRowCount(self.output_data.shape[-1])
+        # Add new rows
+        for i in range(self.output_data.shape[-1]):
+            self.spikePatternTable.setItem(
+                i, 0, QTableWidgetItem(str(i)))  # ID
+            self.spikePatternTable.setItem(i, 1, QTableWidgetItem(
+                self.finalPredictionList[i-1]))  # predicted spike pattern
+            for pattern_label_counter in range(20):
+                probability = self.normalized_softmax[i-1, pattern_label_counter]
+                percentage = int((probability * 100) + 0.5)
+                item = QTableWidgetItem(str(percentage) + " %")
+                
+                # Calculate color based on probability
+                red = int(probability * 255)
+                blue = int((1 - probability) * 255)
+                color = QColor(red, 0, blue)
+                
+                # Manually blend with white to lighten the color
+                blend_factor = 0.2  # Adjust the factor to control lightness (0.0 to 1.0)
+                light_red = int((1 - blend_factor) * red + blend_factor * 255)
+                light_green = int((1 - blend_factor) * 0 + blend_factor * 255)
+                light_blue = int((1 - blend_factor) * blue + blend_factor * 255)
+                light_color = QColor(light_red, light_green, light_blue)
+                
+                item.setBackground(light_color)
+                self.spikePatternTable.setItem(i, pattern_label_counter + 2, item)  # probability of each pattern
+
     # END DATA VISUALIZATION
 
     #################
@@ -884,10 +896,9 @@ class WiN_GUI_Window(QMainWindow):
 
         self.simulate_event.emit()
 
-    def _updateDialRepetition(self, value):
+    def _updateDialRepetition(self):
         """Update the repetition according to the dial."""
-        self.selectedRepetition = value
-
+        self.dialRepetition.sliderReleased.connect(self._updateDialRepetition)
         self.simulate_event.emit()
 
     def _updateDt(self):
@@ -1051,126 +1062,24 @@ class WiN_GUI_Window(QMainWindow):
     ############################
     # SPIKE PATTERN CLASSIFIER #
     ############################
-    def spikePatternClassification(self, generator):
-        device = self._checkCuda(gpu_sel=1, gpu_mem_frac=0.3)
-        # now we can work through the created datset!
-        sensor_id_list = []
-        predictions_list = []
-        for spikes, sensor_ids in generator:
-            spikes = spikes.to(device, non_blocking=True)
-            # get the classification and write it to prediction_list together with the sensor ID
-            pass
-        # seperate all the predictions according to the sensor ID and get the most often predicted label
-
-    def _checkCuda(self, share_GPU=False, gpu_sel=0, gpu_mem_frac=None):
-        """Check for available GPU and distribute work (if needed/wanted)"""
-
-        if (torch.cuda.device_count() > 1) & (share_GPU):
-            gpu_av = [torch.cuda.is_available()
-                      for ii in range(torch.cuda.device_count())]
-            print("Detected {} GPUs. The load will be shared.".format(
-                torch.cuda.device_count()))
-            for gpu in range(len(gpu_av)):
-                if True in gpu_av:
-                    if gpu_av[gpu_sel]:
-                        device = torch.device("cuda:"+str(gpu))
-                        print("Selected GPUs: {}" .format("cuda:"+str(gpu)))
-                    else:
-                        device = torch.device("cuda:"+str(gpu_av.index(True)))
-                else:
-                    device = torch.device("cpu")
-                    print("No available GPU detected. Running on CPU.")
-        elif (torch.cuda.device_count() > 1) & (not share_GPU):
-            print("Multiple GPUs detected but single GPU selected. Setting up the simulation on {}".format(
-                "cuda:"+str(gpu_sel)))
-            device = torch.device("cuda:"+str(gpu_sel))
-            if gpu_mem_frac is not None:
-                # decrese or comment out memory fraction if more is available (the smaller the better)
-                torch.cuda.set_per_process_memory_fraction(
-                    gpu_mem_frac, device=device)
-        else:
-            if torch.cuda.is_available():
-                print("Single GPU detected. Setting up the simulation there.")
-                device = torch.device("cuda:"+str(torch.cuda.current_device()))
-                # thr 1: None, thr 2: 0.8, thr 5: 0.5, thr 10: None
-                if gpu_mem_frac is not None:
-                    # decrese or comment out memory fraction if more is available (the smaller the better)
-                    torch.cuda.set_per_process_memory_fraction(
-                        gpu_mem_frac, device=device)
-            else:
-                print("No GPU detected. Running on CPU.")
-                device = torch.device("cpu")
-
-        return device
-
-    def _prepareDataset(self):
-        print("Preparing dataset")
-        neuronSpikeTimesDense = np.reshape(
-            self.output_data[:, 0, :, :], (self.output_data.shape[0], self.output_data.shape[-1]))
-        max_nb_samples = 1000
-        # the classifier is trained on 1000ms duration with dt=1ms
-        # targetDuration = 1.0  # sec
-        # duration = len(self.input_data) * self.dt  # ms
-        # dt_spk_classifier = 1E-3
-        batch_size = 128
-        pitch = 100
-
-        if neuronSpikeTimesDense.shape[0] < max_nb_samples:
-            # Create sensor ID list
-            sensor_idc = [i for i in range(neuronSpikeTimesDense.shape[-1])]
-            # we need the data to be repeated
-            repeats = 1000 // neuronSpikeTimesDense.shape[0]
-            remainder = 1000 % neuronSpikeTimesDense.shape[0]
-
-            # Create an array of zeros
-            neuronSpikeTimesDenseRepeted = np.zeros(
-                (max_nb_samples, neuronSpikeTimesDense.shape[1]))
-
-            for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
-                # Repeat and concatenate the array to get exactly 1000 entries
-                neuronSpikeTimesDenseRepeted[:, sensor_idx] = np.concatenate([np.repeat(
-                    neuronSpikeTimesDense[:, sensor_idx], repeats), neuronSpikeTimesDense[:remainder, sensor_idx]])
-
-            neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
-
-        elif neuronSpikeTimesDense.shape[0] > max_nb_samples:
-            nb_splits = (
-                neuronSpikeTimesDense.shape[0] - max_nb_samples) // pitch + 1
-
-            # Create sensor ID list
-            sensor_idc = [sensor_idx for sensor_idx in range(
-                neuronSpikeTimesDense.shape[1]) for _ in range(nb_splits)]
-
-            start_points = range(
-                0, neuronSpikeTimesDense.shape[0] - max_nb_samples + 1, pitch)
-
-            # Pre-allocate array for the sliced data
-            neuronSpikeTimesDenseRepeted = np.zeros(
-                (max_nb_samples, nb_splits * neuronSpikeTimesDense.shape[1]))
-
-            # Fill the new array using sliding window
-            for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
-                for split_idx, start in enumerate(start_points):
-                    neuronSpikeTimesDenseRepeted[:, sensor_idx * nb_splits +
-                                                 split_idx] = neuronSpikeTimesDense[start:start + max_nb_samples, sensor_idx]
-
-            neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted
-
-        else:
-            sensor_idc = [i for i in range(neuronSpikeTimesDense.shape[-1])]
-
-        # data is prepared, let's make the dataset
-        ds_test = TensorDataset(torch.as_tensor(
-            neuronSpikeTimesDense.transpose(1, 0)), torch.as_tensor(sensor_idc))
-        generator = DataLoader(
-            ds_test, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
-
-        return generator
+    def spikePatternClassification(self):
+        generator = prepareDataset(self.output_data)
+        predictions, softmax = classifySpikes(generator)
+        # let us get the most frequent predicted class over all batches
+        self.finalPredictionList = []
+        for sensorId in range(self.output_data.shape[-1]):
+            uniquePredictions, count = np.unique(
+                predictions[sensorId, :], return_counts=True)
+            # TODO depending if we want to show the label of the final prediction or use the softmax output this might change
+            self.finalPredictionList.append(
+                uniquePredictions[np.argmax(count)])
+        mean_softmax = np.mean(softmax, axis=1)
+        self.normalized_softmax = mean_softmax / \
+            np.sum(mean_softmax, axis=1, keepdims=True)
 
     def _updateSpikePatternClassification(self):
-        print("Updating spike pattern classification")
-        generator = self._prepareDataset()
-        self.spikePatternClassification(generator)
+        self.spikePatternClassification()
+        self.write_event.emit()
 
 
 def main():
