@@ -1,9 +1,22 @@
 """
 Example structure of parameter list:
-name = {
-    "param_1": [min, max, step, init]
+
+Each parameter dictionary contains the following keys:
+- "param_name": [min, max, step, init]
+
+Where:
+- param_name: The name of the parameter.
+- min: The minimum value of the parameter.
+- max: The maximum value of the parameter.
+- step: The step size for adjusting the parameter.
+- init: The initial value of the parameter.
+
+Example:
+neuron_parameters = {
+    "param_1": [min_value, max_value, step_size, initial_value],
+    "param_2": [min_value, max_value, step_size, initial_value],
     ...
-    "param_n": [min, max, step, init]
+    "param_n": [min_value, max_value, step_size, initial_value]
 }
 """
 
@@ -20,18 +33,6 @@ mn_parameter = {
     "R1": [0, 2, 0.01, 0],    # Ohm?
     "R2": [0, 2, 0.01, 1],    # Ohm?
 }
-
-# mn_parameter = {
-#     "a": [-100, 40, 0.1, 0],    # 1/s
-#     "A_1/C": [-5, 15, 0.1, 0],  # V/s
-#     "A_2/C": [-1, 1, 0.01, 0],  # V/s
-#     "b": [-20, 20, 0.1, 10],    # 1/s
-#     "G/C": [0, 75, 0.1, 50],      # 1/s
-#     "k_1": [0, 300, 1, 200],     # 1/s
-#     "k_2": [0, 30, 0.1, 20],     # 1/s
-#     "R_1": [0, 2, 0.01, 0],      # Ohm?
-#     "R_2": [0, 2, 0.01, 1],      # Ohm?
-# }
 
 # Iziekevich neuron
 iz_parameter = {

@@ -1,14 +1,38 @@
 """
-Use this GUI to visualize the encoding from sample-based into event-/spike-based data.
-It only supports datasets with a specific structure. For more details see the README.md.
-It is possible to change the neuron model and its parameters on the flight.
-It also provides auditory feedback on the encoding result.
+WiN_GUI.py
 
-You can find a detailed description of the GUI here: https://www.sciencedirect.com/science/article/pii/S2352711024001304
+This GUI is designed to visualize the encoding from sample-based data into event-/spike-based data. 
+It supports datasets with a specific structure, as detailed in the README.md. The GUI allows users 
+to change the neuron model and its parameters on the fly and provides auditory feedback on the 
+encoding results.
 
-Simon F. Muller-Cleve
-Fernando M. Quintana
-Vittorio Fra
+Features:
+- Visualization of spike patterns
+- Real-time adjustment of neuron model parameters
+- Auditory feedback on encoding results
+- Detailed description available at: https://www.sciencedirect.com/science/article/pii/S2352711024001304
+- And [fill in the link to the v2 update publication]
+
+Authors:
+- Simon F. Muller-Cleve (v1, v2)
+- Fernando M. Quintana (v1)
+- Vittorio Fra (v1, v2)
+
+Dependencies:
+- numpy
+- pandas
+- torch
+- matplotlib
+- pydub
+- PyQt6
+
+Usage:
+Run this script to launch the GUI. Ensure that the required dependencies are installed and the dataset 
+is structured as specified in the README.md.
+
+License:
+This project is licensed under the GPL-3.0 License. See the LICENSE file for more details.
+
 """
 
 import logging
@@ -24,9 +48,9 @@ from matplotlib.figure import Figure
 from matplotlib.pyplot import cm
 from pydub import AudioSegment
 from pydub.generators import Sawtooth
-from PyQt6.QtGui import QColor
 from PyQt6 import QtCore
 from PyQt6.QtCore import QObject, Qt, QThread, QUrl
+from PyQt6.QtGui import QColor
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QFileDialog, QGridLayout, QLabel, QMainWindow,
@@ -40,6 +64,8 @@ from utils.spike_pattern_classifier import classifySpikes, prepareDataset
 
 WINDOW_WIDTH, WINDOW_HEIGTH = 1500, 750
 DISPLAY_HEIGHT = 35
+MIDPOINT_LIGHTNESS = 200
+EXTREME_LIGHTNESS = 150
 
 
 class EncodingCalc(QObject):
@@ -763,24 +789,28 @@ class WiN_GUI_Window(QMainWindow):
             self.spikePatternTable.setItem(i, 1, QTableWidgetItem(
                 self.finalPredictionList[i-1]))  # predicted spike pattern
             for pattern_label_counter in range(20):
-                probability = self.normalized_softmax[i-1, pattern_label_counter]
+                probability = self.normalized_softmax[i -
+                                                      1, pattern_label_counter]
                 percentage = int((probability * 100) + 0.5)
                 item = QTableWidgetItem(str(percentage) + " %")
-                
+
                 # Calculate color based on probability
                 red = int(probability * 255)
                 blue = int((1 - probability) * 255)
-                color = QColor(red, 0, blue)
-                
-                # Manually blend with white to lighten the color
-                blend_factor = 0.2  # Adjust the factor to control lightness (0.0 to 1.0)
-                light_red = int((1 - blend_factor) * red + blend_factor * 255)
-                light_green = int((1 - blend_factor) * 0 + blend_factor * 255)
-                light_blue = int((1 - blend_factor) * blue + blend_factor * 255)
-                light_color = QColor(light_red, light_green, light_blue)
-                
-                item.setBackground(light_color)
-                self.spikePatternTable.setItem(i, pattern_label_counter + 2, item)  # probability of each pattern
+                green = 5
+                color = QColor(red, green, blue)
+
+                # Adjust color lightness based on distance from 0.5
+                distance_from_mid = abs(probability - 0.5)
+                lightness_factor = EXTREME_LIGHTNESS + \
+                    int((1 - distance_from_mid * 2) *
+                        (MIDPOINT_LIGHTNESS - EXTREME_LIGHTNESS))
+                adjusted_color = color.lighter(lightness_factor)
+
+                item.setBackground(adjusted_color)
+                # probability of each pattern
+                self.spikePatternTable.setItem(
+                    i, pattern_label_counter + 2, item)
 
     # END DATA VISUALIZATION
 

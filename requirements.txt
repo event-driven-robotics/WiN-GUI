@@ -7,3 +7,4 @@ pyqt6
 scikit-learn
 scipy
 torch
+tqdm

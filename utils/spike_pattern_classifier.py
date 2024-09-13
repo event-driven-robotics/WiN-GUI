@@ -1,16 +1,14 @@
 """
 spike_pattern_classifier.py
 
-This module implements a spiking neural network (SNN) for classifying spike patterns. 
-It includes functions for loading pre-trained weights, preparing datasets, and running 
-simulations of spiking neural networks. The module also defines custom autograd functions 
-for surrogate gradient computation, which are used to train the SNN.
+This module implements functions and utilities for classifying spike patterns using spiking neural networks (SNNs). 
+It includes functions for checking GPU availability, preparing datasets, loading pre-trained weights, and running 
+simulations of spiking neural networks. The module also defines custom autograd functions for surrogate gradient 
+computation, which are used to train the SNN.
 
 Main Components:
-- SurrGradSpike: A custom autograd function implementing the spiking nonlinearity and 
-  surrogate gradient as described in Zenke & Ganguli (2018).
-- classifySpikes: A function to classify spike patterns from a generator of spike data.
 - checkCuda: A function to check for available GPUs and set up the device for computation.
+- classifySpikes: A function to classify spike patterns from a generator of spike data.
 - prepareDataset: A function to prepare a dataset for spike pattern classification.
 - getFiringPatternLabels: A function to retrieve a mapping of firing pattern labels.
 - loadWeights: A function to load pre-trained weights for the spiking neural network.
@@ -27,53 +25,30 @@ Dependencies:
 
 Usage:
 This module is intended to be used as part of the WiN-GUI project for spike pattern classification. 
+To use this module, ensure that the required dependencies are installed and the dataset is structured 
+as specified in the README.md.
+
+Example:
+    import torch
+    from spike_pattern_classifier import classifySpikes, prepareDataset, loadWeights, runSNN
+
+    # Prepare dataset
+    dataset = prepareDataset(data_path)
+
+    # Load pre-trained weights
+    model = loadWeights(model_path)
+
+    # Run SNN simulation
+    results = runSNN(model, dataset)
+
 """
 
 import numpy as np
 import torch
 import torch.nn as nn
+from utils.surrogate_gradient import activation
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
-
-class SurrGradSpike(torch.autograd.Function):
-    """
-    Here we implement our spiking nonlinearity which also implements 
-    the surrogate gradient. By subclassing torch.autograd.Function, 
-    we will be able to use all of PyTorch's autograd functionality.
-    Here we use the normalized negative part of a fast sigmoid 
-    as this was done in Zenke & Ganguli (2018).
-    """
-
-    scale = 10
-
-    @staticmethod
-    def forward(ctx, input):
-        """
-        In the forward pass we compute a step function of the input as_tensor
-        and return it. ctx is a context object that we use to stash information which 
-        we need to later backpropagate our error signals. To achieve this we use the 
-        ctx.save_for_backward method.
-        """
-        ctx.save_for_backward(input)
-        out = torch.zeros_like(input)
-        out[input > 0] = 1.0
-        return out
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        """
-        In the backward pass we receive a as_tensor we need to compute the 
-        surrogate gradient of the loss with respect to the input. 
-        Here we use the normalized negative part of a fast sigmoid 
-        as this was done in Zenke & Ganguli (2018).
-        """
-        input, = ctx.saved_tensors  # saved_as_tensors
-        grad_input = grad_output.clone()
-        grad = grad_input/(SurrGradSpike.scale*torch.abs(input)+1.0)**2
-        return grad
-
-
-spike_fn = SurrGradSpike.apply
 
 
 def checkCuda(share_GPU=False, gpu_sel=0, gpu_mem_frac=None):
@@ -299,7 +274,7 @@ def computeActivity(nb_input, nb_neurons, input_activity, nb_steps, device):
     # Compute feedforward layer activity
     for t in range(nb_steps):
         mthr = mem - 1.0
-        out = spike_fn(mthr)
+        out = activation(mthr)
         rst_out = out.detach()
 
         new_syn = 0.8187 * syn + input_activity[:, t]
@@ -350,7 +325,7 @@ def computeRecurrentActivity(nb_input, nb_neurons, input_activity, layer, nb_ste
         # input activity plus last step output activity
         h1 = input_activity[:, t] + torch.einsum("ab,bc->ac", (out, layer))
         mthr = mem - 1.0
-        out = spike_fn(mthr)
+        out = activation(mthr)
         rst = out.detach()  # We do not want to backprop through the reset
 
         new_syn = 0.8187 * syn + h1
@@ -428,21 +403,24 @@ def classifySpikes(generator):
 
     predictions_out_list = []
     softmax_out_list = []
-    generatorObject = tqdm(generator, desc="Classifying spikes", total=len(generator), position=0, leave=True)
+    generatorObject = tqdm(generator, desc="Classifying spikes", total=len(
+        generator), position=0, leave=True)
     for spikes, _ in generatorObject:
         predictions_list = []
         softmax_list = []
-        channelObject = tqdm(range(spikes.shape[-1]), desc="Processing channels", position=1, leave=False)
+        channelObject = tqdm(
+            range(spikes.shape[-1]), desc="Processing channels", position=1, leave=False)
         for sensorId in channelObject:
             sensor_spikes = spikes[:, :, sensorId].to(device).unsqueeze(2)
             spks_out = runSNN(inputs=sensor_spikes,
-                               nb_steps=1000, layers=layers, device=device)
+                              nb_steps=1000, layers=layers, device=device)
 
             spks_sum = torch.sum(spks_out, 1)  # sum over time
             max_activity_idc = torch.argmax(
                 spks_sum, 1)     # argmax over output units
             # MN-defined label of the spiking behaviour
-            prediction = [labels_mapping[list(labels_mapping.keys())[idx.item()]] for idx in max_activity_idc]
+            prediction = [labels_mapping[list(labels_mapping.keys())[
+                idx.item()]] for idx in max_activity_idc]
             softmax = torch.exp(log_softmax_fn(spks_sum))
             predictions_list.append(prediction)
             softmax_list.append(softmax.cpu().detach().numpy())
