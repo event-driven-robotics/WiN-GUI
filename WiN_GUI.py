@@ -702,8 +702,6 @@ class WiN_GUI_Window(QMainWindow):
             if i < len(variables) - 1:
                 ax.set_prop_cycle("color", colors[::2][channels])
                 ax.plot(time, output[idx, index, 0, :][:, channels])
-                if index in [3, 4]:
-                    ax.plot(time, output[idx, index, 0, :][:, channels])
 
                 ymin = np.min(output[idx, index, 0, :][:, channels]) - \
                     0.1 * abs(np.min(output[idx, index, 0, :][:, channels]))
@@ -789,28 +787,35 @@ class WiN_GUI_Window(QMainWindow):
             self.spikePatternTable.setItem(i, 1, QTableWidgetItem(
                 self.finalPredictionList[i-1]))  # predicted spike pattern
             for pattern_label_counter in range(20):
-                probability = self.normalized_softmax[i -
-                                                      1, pattern_label_counter]
-                percentage = int((probability * 100) + 0.5)
-                item = QTableWidgetItem(str(percentage) + " %")
+                if self.finalPredictionList[i-1] == 'No spikes':
+                    item = QTableWidgetItem("0 %")
+                    # color the cell white
+                    item.setBackground(QColor(255, 255, 255))
+                    self.spikePatternTable.setItem(
+                        i, pattern_label_counter + 2, item)
+                else:
+                    probability = self.normalized_softmax[i -
+                                                        1, pattern_label_counter]
+                    percentage = int((probability * 100) + 0.5)
+                    item = QTableWidgetItem(str(percentage) + " %")
 
-                # Calculate color based on probability
-                red = int(probability * 255)
-                blue = int((1 - probability) * 255)
-                green = 5
-                color = QColor(red, green, blue)
+                    # Calculate color based on probability
+                    red = int(probability * 255)
+                    blue = int((1 - probability) * 255)
+                    green = 5
+                    color = QColor(red, green, blue)
 
-                # Adjust color lightness based on distance from 0.5
-                distance_from_mid = abs(probability - 0.5)
-                lightness_factor = EXTREME_LIGHTNESS + \
-                    int((1 - distance_from_mid * 2) *
-                        (MIDPOINT_LIGHTNESS - EXTREME_LIGHTNESS))
-                adjusted_color = color.lighter(lightness_factor)
+                    # Adjust color lightness based on distance from 0.5
+                    distance_from_mid = abs(probability - 0.5)
+                    lightness_factor = EXTREME_LIGHTNESS + \
+                        int((1 - distance_from_mid * 2) *
+                            (MIDPOINT_LIGHTNESS - EXTREME_LIGHTNESS))
+                    adjusted_color = color.lighter(lightness_factor)
 
-                item.setBackground(adjusted_color)
-                # probability of each pattern
-                self.spikePatternTable.setItem(
-                    i, pattern_label_counter + 2, item)
+                    item.setBackground(adjusted_color)
+                    # probability of each pattern
+                    self.spikePatternTable.setItem(
+                        i, pattern_label_counter + 2, item)
 
     # END DATA VISUALIZATION
 
@@ -1098,14 +1103,33 @@ class WiN_GUI_Window(QMainWindow):
         # let us get the most frequent predicted class over all batches
         self.finalPredictionList = []
         for sensorId in range(self.output_data.shape[-1]):
+            # nothing to do if no spikes given
             uniquePredictions, count = np.unique(
                 predictions[sensorId, :], return_counts=True)
-            # TODO depending if we want to show the label of the final prediction or use the softmax output this might change
-            self.finalPredictionList.append(
-                uniquePredictions[np.argmax(count)])
+            
+            # Sort predictions by count in descending order
+            sorted_indices = np.argsort(count)[::-1]
+            sorted_predictions = uniquePredictions[sorted_indices]
+            sorted_counts = count[sorted_indices]
+            
+            # Check if 'No spikes' has the highest count
+            if len(sorted_predictions) > 1 and sorted_predictions[0] == 'No spikes':
+                # Select the second highest count
+                self.finalPredictionList.append(sorted_predictions[1])
+            else:
+                # Select the highest count
+                self.finalPredictionList.append(sorted_predictions[0])
+                
         mean_softmax = np.mean(softmax, axis=1)
-        self.normalized_softmax = mean_softmax / \
-            np.sum(mean_softmax, axis=1, keepdims=True)
+        # Calculate the sum along axis 1, keeping the dimensions
+        sum_mean_softmax = np.sum(mean_softmax, axis=1, keepdims=True)
+
+        # Normalize mean_softmax, avoiding division by zero
+        self.normalized_softmax = np.divide(
+            mean_softmax, 
+            sum_mean_softmax, 
+            where=sum_mean_softmax != 0
+        )
 
     def _updateSpikePatternClassification(self):
         self.spikePatternClassification()
