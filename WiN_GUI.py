@@ -214,7 +214,7 @@ class WiN_GUI_Window(QMainWindow):
         self.tab2 = QWidget()
 
         self.tabs.addTab(self.tab1, "Data Visualization")
-        self.tabs.addTab(self.tab2, "Spike Pattern Visualizer")
+        self.tabs.addTab(self.tab2, "Spike-Pattern Visualization")
 
         # Add tabs to the main layout
         self.generalLayout.addWidget(self.tabs)
