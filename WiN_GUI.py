@@ -301,15 +301,16 @@ class WiN_GUI_Window(QMainWindow):
 
         # dynamically creating the plots for state variables despite V or spk plus raw input
         if self.neuron_model_name == "Mihalas-Niebur":
-            num_figures = len(MN_neuron.NeuronState._fields) + 1
+            num_figures = len(MN_neuron.NeuronState._fields)
         elif self.neuron_model_name == "Izhikevich":
-            num_figures = len(IZ_neuron.NeuronState._fields) + 1
+            num_figures = len(IZ_neuron.NeuronState._fields)
         elif self.neuron_model_name == "Leaky integrate-and-fire":
-            num_figures = len(LIF_neuron.NeuronState._fields) + 1
+            num_figures = len(LIF_neuron.NeuronState._fields)
         elif self.neuron_model_name == "Recurrent leaky integrate-and-fire":
-            num_figures = len(RLIF_neuron.NeuronState._fields) + 1
+            num_figures = len(RLIF_neuron.NeuronState._fields)
         else:
             ValueError("No neuron model selected.")
+        num_figures += 1  # add raster plot
 
         # Create lists to store the figures and axes
         self.figures = []
@@ -778,6 +779,7 @@ class WiN_GUI_Window(QMainWindow):
     @QtCore.pyqtSlot()
     def writeTable(self):
         """Update the spike pattern visualizer."""
+        # TODO label table and raster plot do not match!!!
         # Clear the table
         self.spikePatternTable.setRowCount(self.output_data.shape[-1])
         # Add new rows
@@ -785,17 +787,16 @@ class WiN_GUI_Window(QMainWindow):
             self.spikePatternTable.setItem(
                 i, 0, QTableWidgetItem(str(i)))  # ID
             self.spikePatternTable.setItem(i, 1, QTableWidgetItem(
-                self.finalPredictionList[i-1]))  # predicted spike pattern
+                self.finalPredictionList[i]))  # predicted spike pattern
             for pattern_label_counter in range(20):
-                if self.finalPredictionList[i-1] == 'No spikes':
+                if self.finalPredictionList[i] == 'No spikes':
                     item = QTableWidgetItem("0 %")
                     # color the cell white
                     item.setBackground(QColor(255, 255, 255))
                     self.spikePatternTable.setItem(
                         i, pattern_label_counter + 2, item)
                 else:
-                    probability = self.normalized_softmax[i -
-                                                        1, pattern_label_counter]
+                    probability = self.normalized_softmax[i, pattern_label_counter]
                     percentage = int((probability * 100) + 0.5)
                     item = QTableWidgetItem(str(percentage) + " %")
 
