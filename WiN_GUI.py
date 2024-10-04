@@ -40,11 +40,13 @@ import sys
 from decimal import Decimal
 from random import random
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.gridspec import GridSpec
 from matplotlib.pyplot import cm
 from pydub import AudioSegment
 from pydub.generators import Sawtooth
@@ -312,37 +314,37 @@ class WiN_GUI_Window(QMainWindow):
             ValueError("No neuron model selected.")
         num_figures += 1  # add raster plot
 
-        # Create lists to store the figures and axes
-        self.figures = []
+        # Create a figure and GridSpec
+        self.figure = plt.figure(figsize=(10, 6))
+        self.gs = GridSpec((num_figures // 2) + 1, 2, figure=self.figure)
+
+        # Create lists to store the axes
         self.axes = {}
         self.axis_names = []
         for i in range(num_figures):
             self.axis_names.append(f"_dynamic_ax{i}")
 
-        # TODO fix incorrect size of raster plot when having 4 figures only (raster plot to high)
-        # set last row
-        last_row = int((num_figures/2) + 0.5)
-        # Create the figures and axes dynamically
+        # Create the axes dynamically using GridSpec
         for i, axis_name in enumerate(self.axis_names):
-            if i < len(self.axis_names)-1:
-                # all state variables plus raw data
-                figure = FigureCanvas(Figure())  # figsize=(5, 5)
-                self.figures.append(figure)
-                self.plotLayout.addWidget(figure, i // 2, i % 2, 1, 1)
+            if i < len(self.axis_names) - 1:
+                ax = self.figure.add_subplot(self.gs[i // 2, i % 2])
             else:
-                # raster plot at the bottom
-                # spans over 2 columns and 1/2 row
-                figure = FigureCanvas(Figure())  # figsize=(10, 5)
-                self.figures.append(figure)
-                self.plotLayout.addWidget(figure, last_row, 0, 3, 2)
-            ax = figure.figure.subplots()
+                ax = self.figure.add_subplot(self.gs[-1, :])
             self.axes[axis_name] = ax
 
         # Assign the axes to the corresponding variables dynamically
         for ax_variable_name, ax in self.axes.items():
             setattr(self, ax_variable_name, ax)
 
+        # Add the figure to the layout
+        self.canvas = FigureCanvas(self.figure)
+        self.plotLayout.addWidget(self.canvas, 0, 0)
         self.canvasLayout.addLayout(self.plotLayout, 0, 0)
+
+        # Adjust layout to reduce whitespace
+        self.figure.tight_layout()
+        # Alternatively, you can use subplots_adjust for more control:
+        # self.figure.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.2, hspace=0.4)
 
     def createChannelSelection(self):
         # create the channel selection
@@ -637,7 +639,6 @@ class WiN_GUI_Window(QMainWindow):
         output = self.output_data
         axes = self.axes
         axis_names = self.axis_names
-        figures = self.figures
         dt = self.dt
 
         # some color schemes can be found here
@@ -649,20 +650,18 @@ class WiN_GUI_Window(QMainWindow):
 
         # TODO check if this is wanted (fast plotting vs accuracy)
         idx = np.arange(0, input.shape[0], upsample_fac)
-        time = idx*dt/upsample_fac
+        time = idx * dt / upsample_fac
 
         # plot the input data
         axes[axis_names[0]].clear()
         axes[axis_names[0]].set_prop_cycle("color", colors[::2][channels])
         axes[axis_names[0]].plot(time, input[idx, 0][:, channels])
-        ymin = np.min(input[:, 0, channels]) - 0.1 * \
-            abs(np.min(input[:, 0, channels]))
-        ymax = np.max(input[:, 0, channels]) + 0.1 * \
-            abs(np.max(input[:, 0, channels]))
+        ymin = np.min(input[:, 0, channels]) - 0.1 * abs(np.min(input[:, 0, channels]))
+        ymax = np.max(input[:, 0, channels]) + 0.1 * abs(np.max(input[:, 0, channels]))
         if ymin != ymax:
             axes[axis_names[0]].set_ylim(ymin, ymax)
         axes[axis_names[0]].set_title("Input")
-        figures[0].draw()
+        self.canvas.draw()
 
         axes[axis_names[1]].clear()
 
@@ -680,7 +679,7 @@ class WiN_GUI_Window(QMainWindow):
 
         variable_info = []
         for i, name in enumerate(self.neuronStateVariables):
-            variable_info.append({"index": str(i+1), "title": name})
+            variable_info.append({"index": str(i + 1), "title": name})
 
         variables = []
         for i, single_variable_info in enumerate(variable_info):
@@ -704,10 +703,8 @@ class WiN_GUI_Window(QMainWindow):
                 ax.set_prop_cycle("color", colors[::2][channels])
                 ax.plot(time, output[idx, index, 0, :][:, channels])
 
-                ymin = np.min(output[idx, index, 0, :][:, channels]) - \
-                    0.1 * abs(np.min(output[idx, index, 0, :][:, channels]))
-                ymax = np.max(output[idx, index, 0, :][:, channels]) + \
-                    0.1 * abs(np.max(output[idx, index, 0, :][:, channels]))
+                ymin = np.min(output[idx, index, 0, :][:, channels]) - 0.1 * abs(np.min(output[idx, index, 0, :][:, channels]))
+                ymax = np.max(output[idx, index, 0, :][:, channels]) + 0.1 * abs(np.max(output[idx, index, 0, :][:, channels]))
                 if ymin != ymax:
                     ax.set_ylim(ymin, ymax)
                 ax.set_title(title)
@@ -715,15 +712,14 @@ class WiN_GUI_Window(QMainWindow):
                 # create raster plot
                 t, neuron_idx = np.where(output[:, 0, 0, :])
                 i = np.where(np.in1d(neuron_idx, np.where(channels)[0]))
-                t = t[i]*(dt/upsample_fac)
+                t = t[i] * (dt / upsample_fac)
                 neuron_idx = neuron_idx[i]
                 # remove color argument to get monochrom
                 ax.scatter(x=t, y=neuron_idx, c=colors[::2][neuron_idx], s=5)
                 ax.set_ylim(-1, output.shape[-1])
-                ax.set_xlim(0, output.shape[0] / (1/self.dt) / upsample_fac)
+                ax.set_xlim(0, output.shape[0] / (1 / self.dt) / upsample_fac)
 
-        for var in variables:
-            var["ax"].figure.canvas.draw()
+        self.canvas.draw()
 
     def _updateCanvas(self, input_data, output_data):
         self.input_data = input_data
