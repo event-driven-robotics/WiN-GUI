@@ -42,12 +42,14 @@ from random import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
 import torch
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
 from matplotlib.pyplot import cm
+import pyautogui
 from pydub import AudioSegment
 from pydub.generators import Sawtooth
 from PyQt6 import QtCore
@@ -171,7 +173,8 @@ class WiN_GUI_Window(QMainWindow):
         super().__init__()
 
         # Window creation
-        self.setWindowTitle("WiN-GUI")
+        gui_window_title = "WiN-GUI"
+        self.setWindowTitle(gui_window_title)
         self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGTH)
 
         self.setWindowFlags(
@@ -184,11 +187,24 @@ class WiN_GUI_Window(QMainWindow):
             # | QtCore.Qt.WindowType.WindowStaysOnTopHint  # enforce window in forground
         )
 
-        # TODO inlcude removing tmp folder when closing GUI
         # create tmp path to store audio file
         self.tmp_path = "./tmp"
         # used to store tmp data (audio file, etc.)
         create_directory(self.tmp_path)
+
+        # NOTE: inlcude removing tmp folder when closing GUI is now implemented as:
+        # remove tmp files from a previous session
+        clear_tmp = False
+        windows = pyautogui.getAllWindows()
+        for window in windows:
+            if gui_window_title in window.title:
+                clear_tmp = True
+                break
+        if clear_tmp == True:
+            try:
+                os.remove(f"{self.tmp_path}/spikeToAudio.wav")
+            except:
+                print(f"{self.tmp_path}/spikeToAudio.wav not present. It will be created.")
 
         # setting defaults
         self.upsample_fac = 1
@@ -1139,7 +1155,7 @@ def main():
     winGUIwindow = WiN_GUI_Window()
     winGUIwindow.show()
 
-    sys.exit(WiN_GUI.exec())  # TODO inlcude removing tmp folder
+    sys.exit(WiN_GUI.exec())
 
 
 if __name__ == "__main__":
