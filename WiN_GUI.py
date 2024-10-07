@@ -36,20 +36,20 @@ This project is licensed under the GPL-3.0 License. See the LICENSE file for mor
 """
 
 import logging
+import os
+import shutil
 import sys
+import tempfile
 from decimal import Decimal
 from random import random
 
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pandas as pd
 import torch
 from matplotlib.backends.backend_qtagg import FigureCanvas
-from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
 from matplotlib.pyplot import cm
-import pyautogui
 from pydub import AudioSegment
 from pydub.generators import Sawtooth
 from PyQt6 import QtCore
@@ -188,23 +188,8 @@ class WiN_GUI_Window(QMainWindow):
         )
 
         # create tmp path to store audio file
-        self.tmp_path = "./tmp"
-        # used to store tmp data (audio file, etc.)
-        create_directory(self.tmp_path)
-
-        # NOTE: inlcude removing tmp folder when closing GUI is now implemented as:
-        # remove tmp files from a previous session
-        clear_tmp = False
-        windows = pyautogui.getAllWindows()
-        for window in windows:
-            if gui_window_title in window.title:
-                clear_tmp = True
-                break
-        if clear_tmp == True:
-            try:
-                os.remove(f"{self.tmp_path}/spikeToAudio.wav")
-            except:
-                print(f"{self.tmp_path}/spikeToAudio.wav not present. It will be created.")
+        tmp_dir = "./"
+        self.tmp_folder = tempfile.mkdtemp(dir=tmp_dir)  # Create a temporary folder
 
         # setting defaults
         self.upsample_fac = 1
@@ -280,7 +265,7 @@ class WiN_GUI_Window(QMainWindow):
     ######################
 
     def createAudioPushButtons(self):
-        filename = f"{self.tmp_path}/spikeToAudio.wav"
+        filename = f"{self.tmp_folder}/spikeToAudio.wav"
         # self.eventsAudioStream = []  # TODO use this variable for the event audio stream
         self.player = QMediaPlayer()
         self.audio_output = QAudioOutput()
@@ -361,6 +346,7 @@ class WiN_GUI_Window(QMainWindow):
         self.figure.tight_layout()
         # Alternatively, you can use subplots_adjust for more control:
         # self.figure.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=0.2, hspace=0.4)
+        self._updateFontSizes()
 
     def createChannelSelection(self):
         # create the channel selection
@@ -657,6 +643,11 @@ class WiN_GUI_Window(QMainWindow):
         axis_names = self.axis_names
         dt = self.dt
 
+        # Get height of the GUI window
+        height = self.generalLayout.height()
+        tick_font_size = height * 0.01
+        title_font_size = height * 0.015
+
         # some color schemes can be found here
         # (https://matplotlib.org/stable/tutorials/colors/colormaps.html)
 
@@ -672,8 +663,10 @@ class WiN_GUI_Window(QMainWindow):
         axes[axis_names[0]].clear()
         axes[axis_names[0]].set_prop_cycle("color", colors[::2][channels])
         axes[axis_names[0]].plot(time, input[idx, 0][:, channels])
-        ymin = np.min(input[:, 0, channels]) - 0.1 * abs(np.min(input[:, 0, channels]))
-        ymax = np.max(input[:, 0, channels]) + 0.1 * abs(np.max(input[:, 0, channels]))
+        ymin = np.min(input[:, 0, channels]) - 0.1 * \
+            abs(np.min(input[:, 0, channels]))
+        ymax = np.max(input[:, 0, channels]) + 0.1 * \
+            abs(np.max(input[:, 0, channels]))
         if ymin != ymax:
             axes[axis_names[0]].set_ylim(ymin, ymax)
         axes[axis_names[0]].set_title("Input")
@@ -719,11 +712,12 @@ class WiN_GUI_Window(QMainWindow):
                 ax.set_prop_cycle("color", colors[::2][channels])
                 ax.plot(time, output[idx, index, 0, :][:, channels])
 
-                ymin = np.min(output[idx, index, 0, :][:, channels]) - 0.1 * abs(np.min(output[idx, index, 0, :][:, channels]))
-                ymax = np.max(output[idx, index, 0, :][:, channels]) + 0.1 * abs(np.max(output[idx, index, 0, :][:, channels]))
+                ymin = np.min(output[idx, index, 0, :][:, channels]) - \
+                    0.1 * abs(np.min(output[idx, index, 0, :][:, channels]))
+                ymax = np.max(output[idx, index, 0, :][:, channels]) + \
+                    0.1 * abs(np.max(output[idx, index, 0, :][:, channels]))
                 if ymin != ymax:
                     ax.set_ylim(ymin, ymax)
-                ax.set_title(title)
             else:
                 # create raster plot
                 t, neuron_idx = np.where(output[:, 0, 0, :])
@@ -735,7 +729,14 @@ class WiN_GUI_Window(QMainWindow):
                 ax.set_ylim(-1, output.shape[-1])
                 ax.set_xlim(0, output.shape[0] / (1 / self.dt) / upsample_fac)
 
+            ax.set_title(title, fontsize=title_font_size)
+            ax.tick_params(axis='both', which='major',
+                           labelsize=tick_font_size)
         self.canvas.draw()
+
+    def resizeEvent(self, event):
+        self._updateFontSizes()
+        super().resizeEvent(event)  # Call the base class implementation
 
     def _updateCanvas(self, input_data, output_data):
         self.input_data = input_data
@@ -771,6 +772,19 @@ class WiN_GUI_Window(QMainWindow):
     def _updateComboBoxLettersText(self, s):
         self.active_class = self.le.transform([s])[0]
         self.simulate_event.emit()
+
+    def _updateFontSizes(self):
+        # Get height of the GUI window
+        height = self.generalLayout.height()
+        tick_font_size = height * 0.01
+        title_font_size = height * 0.015
+
+        # Update the font sizes of your plot ticks and labels
+        for ax in self.figure.get_axes():
+            ax.tick_params(axis='both', which='major',
+                           labelsize=tick_font_size)
+            ax.title.set_size(title_font_size)
+        self.canvas.draw_idle()  # Redraw the canvas to apply changes
 
     def _resetLayout(self, layout, sublayout):
         """Remove all the sliders from the interface."""
@@ -808,7 +822,8 @@ class WiN_GUI_Window(QMainWindow):
                     self.spikePatternTable.setItem(
                         i, pattern_label_counter + 2, item)
                 else:
-                    probability = self.normalized_softmax[i, pattern_label_counter]
+                    probability = self.normalized_softmax[i,
+                                                          pattern_label_counter]
                     percentage = int((probability * 100) + 0.5)
                     item = QTableWidgetItem(str(percentage) + " %")
 
@@ -926,6 +941,15 @@ class WiN_GUI_Window(QMainWindow):
             self.dialRepetition.setParent(None)
             self.dialRepetition.deleteLater()
 
+    def closeEvent(self, event):
+        # Stop the main threads
+        self._stopThreads()
+
+        # Remove the temporary folder
+        if os.path.exists(self.tmp_folder):
+            shutil.rmtree(self.tmp_folder)
+        event.accept()  # Accept the close event
+
     def _loadData(self):
         """Load the data from the file."""
         self.data_split, self.labels, self.timestamps, self.le, self.data = load_data(
@@ -1034,6 +1058,12 @@ class WiN_GUI_Window(QMainWindow):
         self._updateData()
         self.simulate_event.emit()
 
+    def _stopThreads(self):
+        # Implement logic to stop all running threads
+        # For example, if you have a list of threads:
+        self.thread.quit()
+        self.thread.wait()
+
     # END DATAMANAGEMENT
 
     ###################
@@ -1103,7 +1133,7 @@ class WiN_GUI_Window(QMainWindow):
         audio_duration = len(self.input_data) * self.dt
 
         audio = self.spikeToAudio(
-            out_path='./tmp', neuron_spike_times=neuronSpikeTimes, audio_duration=audio_duration)
+            out_path=self.tmp_folder, neuron_spike_times=neuronSpikeTimes, audio_duration=audio_duration)
 
     # END SPIKE TO AUDIO
 
@@ -1119,12 +1149,12 @@ class WiN_GUI_Window(QMainWindow):
             # nothing to do if no spikes given
             uniquePredictions, count = np.unique(
                 predictions[sensorId, :], return_counts=True)
-            
+
             # Sort predictions by count in descending order
             sorted_indices = np.argsort(count)[::-1]
             sorted_predictions = uniquePredictions[sorted_indices]
             sorted_counts = count[sorted_indices]
-            
+
             # Check if 'No spikes' has the highest count
             if len(sorted_predictions) > 1 and sorted_predictions[0] == 'No spikes':
                 # Select the second highest count
@@ -1132,15 +1162,15 @@ class WiN_GUI_Window(QMainWindow):
             else:
                 # Select the highest count
                 self.finalPredictionList.append(sorted_predictions[0])
-                
+
         mean_softmax = np.mean(softmax, axis=1)
         # Calculate the sum along axis 1, keeping the dimensions
         sum_mean_softmax = np.sum(mean_softmax, axis=1, keepdims=True)
 
         # Normalize mean_softmax, avoiding division by zero
         self.normalized_softmax = np.divide(
-            mean_softmax, 
-            sum_mean_softmax, 
+            mean_softmax,
+            sum_mean_softmax,
             where=sum_mean_softmax != 0
         )
 
