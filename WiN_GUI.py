@@ -186,11 +186,10 @@ class WiN_GUI_Window(QMainWindow):
             | QtCore.Qt.WindowType.WindowMaximizeButtonHint
             # | QtCore.Qt.WindowType.WindowStaysOnTopHint  # enforce window in forground
         )
-
         # create tmp path to store audio file
-        tmp_dir = "./"
+        self.tmp_dir = "./"
         self.tmp_folder = tempfile.mkdtemp(
-            dir=tmp_dir)  # Create a temporary folder
+            dir=self.tmp_dir)  # Create a temporary folder
 
         # setting defaults
         self.upsample_fac = 1
@@ -654,27 +653,26 @@ class WiN_GUI_Window(QMainWindow):
         Unstructured: F, G, I, T
         """
         self.patternLabels = ["ID",
-                              "Spike Pattern",  # A
-                              "Tonic spiking",  # B
-                              "Class 1",  # C
-                              "Spike frequency\nadaptation",  # D
-                              "Phasic spiking",  # E
-                              "Accommodation",  # F
-                              "Threshold\nvariability",  # G
-                              "Rebound spike",  # H
-                              "Class 2",  # I
-                              "Integrator",  # J
-                              "Input\nbistability",  # K
-                              "Hyperpolarizing\nspiking",  # L
-                              "Hyperpolarizing\nbursting",   # M
-                              "Tonic bursting",  # N
-                              "Phasic bursting",  # O
-                              "Rebound burst",  # P
-                              "Mixed mode",  # Q
-                              "Afterpotentials",  # R
-                              "Basal\nbistability",  # S
-                              "Preferred\nfrequency",  # T
-                              "Spike latency"  # U
+                              "Tonic spiking",  # A
+                              "Class 1",  # B
+                              "Spike frequency\nadaptation",  # C
+                              "Phasic spiking",  # D
+                              "Accommodation",  # E
+                              "Threshold\nvariability",  # F
+                              "Rebound spike",  # G
+                              "Class 2",  # H
+                              "Integrator",  # I
+                              "Input\nbistability",  # J
+                              "Hyperpolarizing\nspiking",  # K
+                              "Hyperpolarizing\nbursting",  # L
+                              "Tonic bursting",  # M
+                              "Phasic bursting",  # N
+                              "Rebound burst",  # O
+                              "Mixed mode",  # P
+                              "Afterpotentials",  # Q
+                              "Basal\nbistability",  # R
+                              "Preferred\nfrequency",  # S
+                              "Spike latency"  # T
                               ]
         self.patternLabels = ["ID",
                               "Regular",
@@ -685,11 +683,11 @@ class WiN_GUI_Window(QMainWindow):
                               ]
         # mapping from all 20 to major
         self.patternMapping = {
-            "Regular": ["Spike Pattern", "Tonic spiking", "Input\nbistability", "Mixed mode"],
-            "Single burst": ["Tonic bursting", "Phasic bursting"],
-            "Multi-burst": ["Hyperpolarizing\nspiking", "Hyperpolarizing\nbursting", "Afterpotentials", "Basal\nbistability"],
-            "Mixed": ["Class 1", "Spike frequency\nadaptation", "Phasic spiking", "Rebound spike", "Integrator", "Rebound burst"],
-            "Unstructured": ["Accommodation", "Threshold\nvariability", "Class 2", "Preferred\nfrequency"]
+            "Regular": ["Tonic spiking", "Class 1", "Hyperpolarizing\nspiking", "Afterpotentials"],
+            "Single burst": ["Phasic bursting", "Rebound burst"],
+            "Multi-burst": ["Hyperpolarizing\nbursting", "Tonic bursting", "Basal\nbistability", "Preferred\nfrequency"],
+            "Mixed": ["Spike frequency\nadaptation", "Phasic spiking", "Accommodation", "Class 2", "Input\nbistability", "Mixed mode"],
+            "Unstructured": ["Threshold\nvariability", "Rebound spike", "Integrator", "Spike latency"]
         }  # TODO add spike latency
 
         self.spikePatternTable = QTableWidget()
@@ -1042,8 +1040,9 @@ class WiN_GUI_Window(QMainWindow):
         self._stopThreads()
 
         # Remove the temporary folder
-        if os.path.exists(self.tmp_folder):
-            shutil.rmtree(self.tmp_folder)
+        for folder in os.listdir(self.tmp_dir):
+            if folder.startswith("tmp"):
+                shutil.rmtree(folder)
         event.accept()  # Accept the close event
 
     def _loadData(self):
