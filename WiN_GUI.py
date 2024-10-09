@@ -54,7 +54,7 @@ from pydub import AudioSegment
 from pydub.generators import Sawtooth
 from PyQt6 import QtCore
 from PyQt6.QtCore import QEvent, QObject, Qt, QThread, QUrl
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QCursor
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QFileDialog, QGridLayout, QLabel, QMainWindow,
@@ -71,6 +71,22 @@ DISPLAY_HEIGHT = 35
 MIDPOINT_LIGHTNESS = 200
 EXTREME_LIGHTNESS = 150
 
+class CustomSlider(QSlider):
+    def enterEvent(self, event):
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.unsetCursor()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        super().mouseReleaseEvent(event)
 
 class EncodingCalc(QObject):
     """EncodingGUI's controller class."""
@@ -272,26 +288,17 @@ class WiN_GUI_Window(QMainWindow):
 
     def event(self, event):
         if event.type() == QEvent.Type.HoverMove:
-            # self.setFocus()  # Ensure the main window has focus
-            # if self.hasFocus():
-            #     print("Widget has focus")
-            # else:
-            #     print("Widget does not have focus")
-            # print("Hovering")
             pos = event.position()
             height = self.height()
             width = self.width()
-            margin = 10  # Margin for resize area
+            margin = 5  # Margin for resize area
 
             if pos.x() < margin or pos.x() > width - margin:
                 self.setCursor(Qt.CursorShape.SizeHorCursor)
-                print("Horizontal resize")
             elif pos.y() < margin or pos.y() > height - margin:
                 self.setCursor(Qt.CursorShape.SizeVerCursor)
-                print("Vertical resize")
             else:
                 self.setCursor(Qt.CursorShape.ArrowCursor)
-                print("Normal cursor")
 
         return super().event(event)
 
@@ -444,7 +451,7 @@ class WiN_GUI_Window(QMainWindow):
         # create a dial to select the repetition
         self.selectedRepetition = 0
         self.dialRepetition = QDial(self)
-        self.dialRepetition.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.dialRepetition.setCursor(Qt.CursorShape.OpenHandCursor)
         self.dialRepetition.setMinimum(0)
         self.dialRepetition.setMaximum(0)
         self.dialRepetition.setValue(self.selectedRepetition)
@@ -512,7 +519,7 @@ class WiN_GUI_Window(QMainWindow):
                 param_values[-1] * self.factor[id])  # read start value
 
             # create a slider for every param
-            slider = QSlider(Qt.Orientation.Horizontal, self)
+            slider = CustomSlider(Qt.Orientation.Horizontal, self)
             slider.setMinimum(int(param_values[0] * self.factor[id]))
             slider.setMaximum(int(param_values[1] * self.factor[id]))
             slider.setValue(self.sliderValues[id])  # set start value
@@ -530,17 +537,6 @@ class WiN_GUI_Window(QMainWindow):
 
             self.sliders.append(slider)
             self.sliderLayout.addWidget(slider, id + 2, 1)
-
-            # create label for each slider
-            # # TODO here we assume that the parameter name is always 'x_n' or does not contain '_' at all
-            # # TODO this is not ideal, but in most cases variables have only a single digit subscript
-            # # Use regular expression to find the pattern 'x_n' and format it as 'x<sub>n</sub>'
-            # import re
-            # formatted_string = re.sub(r'(\w)_(\w)', r'\1<sub>\2</sub>', param_key)
-            # # Creating a QLabel
-            # sliderLabel = QLabel()
-            # # Setting HTML content with the formatted string
-            # sliderLabel.setText(f'<html><head/><body><p>{formatted_string}</p></body></html>')
 
             sliderLabel = QLabel(param_key, self)  # write parameter name
             sliderLabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
