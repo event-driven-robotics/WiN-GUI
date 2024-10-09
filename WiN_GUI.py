@@ -36,7 +36,7 @@ This project is licensed under the GPL-3.0 License. See the LICENSE file for mor
 """
 
 import logging
-import os
+import os, stat
 import shutil
 import sys
 import tempfile
@@ -1030,6 +1030,11 @@ class WiN_GUI_Window(QMainWindow):
             # Remove the dial widget from the layout
             self.dialRepetition.setParent(None)
             self.dialRepetition.deleteLater()
+    
+    def remove_readonly(self, func, path, _):
+        "Clear the readonly bit and reattempt the removal"
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
 
     def closeEvent(self, event):
         # Stop the main threads
@@ -1038,7 +1043,8 @@ class WiN_GUI_Window(QMainWindow):
         # Remove the temporary folder
         for folder in os.listdir(self.tmp_dir):
             if folder.startswith("tmp"):
-                shutil.rmtree(folder)
+                shutil.rmtree(folder, onerror=self.remove_readonly) # NOTE: onerror is deprecated as of python 3.12, to be replaced by onexc
+
         event.accept()  # Accept the close event
 
     def _loadData(self):
