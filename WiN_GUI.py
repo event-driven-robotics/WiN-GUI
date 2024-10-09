@@ -53,16 +53,16 @@ from matplotlib.pyplot import cm
 from pydub import AudioSegment
 from pydub.generators import Sawtooth
 from PyQt6 import QtCore
-from PyQt6.QtCore import QObject, Qt, QThread, QUrl
+from PyQt6.QtCore import QEvent, QObject, Qt, QThread, QUrl
 from PyQt6.QtGui import QColor
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QFileDialog, QGridLayout, QLabel, QMainWindow,
-                             QPushButton, QSlider, QSplitter, QTableWidget,
-                             QTableWidgetItem, QTabWidget, QWidget)
+                             QPushButton, QSizePolicy, QSlider, QSplitter,
+                             QTableWidget, QTableWidgetItem, QTabWidget,
+                             QWidget)
 
-from utils.data_management import (create_directory, load_data,
-                                   preprocess_data, split_data)
+from utils.data_management import load_data, preprocess_data, split_data
 from utils.neuron_models import IZ_neuron, LIF_neuron, MN_neuron, RLIF_neuron
 from utils.spike_pattern_classifier import classifySpikes, prepareDataset
 
@@ -189,7 +189,8 @@ class WiN_GUI_Window(QMainWindow):
 
         # create tmp path to store audio file
         tmp_dir = "./"
-        self.tmp_folder = tempfile.mkdtemp(dir=tmp_dir)  # Create a temporary folder
+        self.tmp_folder = tempfile.mkdtemp(
+            dir=tmp_dir)  # Create a temporary folder
 
         # setting defaults
         self.upsample_fac = 1
@@ -207,24 +208,34 @@ class WiN_GUI_Window(QMainWindow):
         self.dataFilename = None
         self.neuronStateVariables = None
 
+        self.initUI()
+
+    def initUI(self):
         # Init the main layout
         self.generalLayout = QSplitter(Qt.Orientation.Horizontal)
         self.setCentralWidget(self.generalLayout)
 
+        # Set the size policy to make the window resizable
+        self.setSizePolicy(QSizePolicy.Policy.Expanding,
+                           QSizePolicy.Policy.Expanding)
+
+        # Enable hover events
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+
         # Add tabs
         self.tabs = QTabWidget()
-        self.tab1 = QWidget()
-        self.tab2 = QWidget()
+        self.data_tab = QWidget()
+        self.spike_pattern_tab = QWidget()
 
-        self.tabs.addTab(self.tab1, "Data Visualization")
-        self.tabs.addTab(self.tab2, "Spike-Pattern Visualization")
+        self.tabs.addTab(self.data_tab, "Data Visualization")
+        self.tabs.addTab(self.spike_pattern_tab, "Spike-Pattern Visualization")
 
         # Add tabs to the main layout
         self.generalLayout.addWidget(self.tabs)
 
         # Canvas pane in the first tab
-        self.canvasLayout = QGridLayout(self.tab1)
-        self.tab1.setLayout(self.canvasLayout)
+        self.canvasLayout = QGridLayout(self.data_tab)
+        self.data_tab.setLayout(self.canvasLayout)
 
         # Spike Pattern Visualizer in the second tab
         self.createSpikePatternVisualizer()
@@ -259,6 +270,31 @@ class WiN_GUI_Window(QMainWindow):
             self._updateSpikePatternClassification)
 
         self.thread.start()
+
+    def event(self, event):
+        if event.type() == QEvent.Type.HoverMove:
+            # self.setFocus()  # Ensure the main window has focus
+            # if self.hasFocus():
+            #     print("Widget has focus")
+            # else:
+            #     print("Widget does not have focus")
+            # print("Hovering")
+            pos = event.position()
+            height = self.height()
+            width = self.width()
+            margin = 10  # Margin for resize area
+
+            if pos.x() < margin or pos.x() > width - margin:
+                self.setCursor(Qt.CursorShape.SizeHorCursor)
+                print("Horizontal resize")
+            elif pos.y() < margin or pos.y() > height - margin:
+                self.setCursor(Qt.CursorShape.SizeVerCursor)
+                print("Vertical resize")
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+                print("Normal cursor")
+
+        return super().event(event)
 
     ######################
     # DATA VISUALIZATION #
@@ -398,6 +434,7 @@ class WiN_GUI_Window(QMainWindow):
         dataSelectionLayout = QGridLayout()
         title = QLabel("Data management")
         self.loadButton = QPushButton("Load data")
+        self.loadButton.setCursor(Qt.CursorShape.PointingHandCursor)
 
         self.loadButton.clicked.connect(self.openData)
         dataSelectionLayout.addWidget(title, 0, 0, 1, 0)
@@ -408,15 +445,19 @@ class WiN_GUI_Window(QMainWindow):
         # create a dial to select the repetition
         self.selectedRepetition = 0
         self.dialRepetition = QDial(self)
+        self.dialRepetition.setCursor(Qt.CursorShape.PointingHandCursor)
         self.dialRepetition.setMinimum(0)
         self.dialRepetition.setMaximum(0)
         self.dialRepetition.setValue(self.selectedRepetition)
         self.dialRepetition.sliderReleased.connect(self._updateDialRepetition)
+        self.dialRepetition.sliderPressed.connect(self._onDialPressed)
+        self.dialRepetition.sliderReleased.connect(self._onDialReleased)
         dataSelectionLayout.addWidget(self.dialRepetition, 2, 0)
 
         # TODO only needed if differnet labels given (read from data)
         # create a combo box with all letters
         self.comboBoxLetters = QComboBox()
+        self.comboBoxLetters.setCursor(Qt.CursorShape.PointingHandCursor)
         self.comboBoxLetters.currentTextChanged.connect(
             self._updateComboBoxLettersText)
         dataSelectionLayout.addWidget(self.comboBoxLetters, 2, 1)
@@ -433,6 +474,8 @@ class WiN_GUI_Window(QMainWindow):
         modelSelectionLayout = QGridLayout()
         title = QLabel("Neuron model and parameters")
         self.combo_box_neuron_model = QComboBox(self)
+        self.combo_box_neuron_model.setCursor(
+            Qt.CursorShape.PointingHandCursor)
         neuron_neuron_model_names = [
             "Mihalas-Niebur",
             "Izhikevich",
@@ -526,6 +569,7 @@ class WiN_GUI_Window(QMainWindow):
         # TODO create a 2x2 grid for checkboxes
         # checkboxes for: normalize, filter, startTrialAtNull, split_data
         self.normalizeDataCheckbox = QCheckBox("Normalize data")
+        self.normalizeDataCheckbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.normalizeDataCheckbox.setChecked(self.normalizeData)
         self.normalizeDataCheckbox.stateChanged.connect(
             self._updateNormalizeData)
@@ -533,6 +577,7 @@ class WiN_GUI_Window(QMainWindow):
             self.normalizeDataCheckbox, 1, 0, Qt.AlignmentFlag.AlignLeft)
 
         self.filterSignalCheckbox = QCheckBox("Filter signal")
+        self.filterSignalCheckbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.filterSignalCheckbox.setChecked(self.filterSignal)
         self.filterSignalCheckbox.stateChanged.connect(
             self._updateFilterSignal)
@@ -540,6 +585,8 @@ class WiN_GUI_Window(QMainWindow):
             self.filterSignalCheckbox, 1, 1, Qt.AlignmentFlag.AlignLeft)
 
         self.startTrialAtNullCheckbox = QCheckBox("Start trial at null")
+        self.startTrialAtNullCheckbox.setCursor(
+            Qt.CursorShape.PointingHandCursor)
         self.startTrialAtNullCheckbox.setChecked(self.startTrialAtNull)
         self.startTrialAtNullCheckbox.stateChanged.connect(
             self._updateStartTrialAtNull)
@@ -547,6 +594,7 @@ class WiN_GUI_Window(QMainWindow):
             self.startTrialAtNullCheckbox, 2, 0, Qt.AlignmentFlag.AlignCenter)
 
         self.splitDataCheckbox = QCheckBox("Split data")
+        self.splitDataCheckbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.splitDataCheckbox.setChecked(self.enable_data_splitting)
         self.splitDataCheckbox.stateChanged.connect(
             self._updateSplitData)
@@ -559,6 +607,7 @@ class WiN_GUI_Window(QMainWindow):
         dt_label_text.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.preprocessingLayout.addWidget(dt_label_text, 3, 0)
         self.dt_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self.dt_slider.setCursor(Qt.CursorShape.PointingHandCursor)
         self.dt_slider.setMinimum(1)
         self.dt_slider.setMaximum(10)
         self.dt_slider.setValue(1)
@@ -576,6 +625,7 @@ class WiN_GUI_Window(QMainWindow):
         scale_label_text.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.preprocessingLayout.addWidget(scale_label_text, 4, 0)
         self.scale_slider = QSlider(Qt.Orientation.Horizontal, self)
+        self.scale_slider.setCursor(Qt.CursorShape.PointingHandCursor)
         self.scale_slider.setMinimum(1)
         self.scale_slider.setMaximum(10)
         self.scale_slider.setValue(1)
@@ -596,6 +646,52 @@ class WiN_GUI_Window(QMainWindow):
 
     def createSpikePatternVisualizer(self):
         """Create a table for spike pattern visualization in the second tab."""
+        """
+        Regular: A, B, K, Q
+        Single burst: N, O
+        Multi-burst: L, M, R, S
+        Mixed: C, D, E, H, J, P
+        Unstructured: F, G, I, T
+        """
+        self.patternLabels = ["ID",
+                              "Spike Pattern",  # A
+                              "Tonic spiking",  # B
+                              "Class 1",  # C
+                              "Spike frequency\nadaptation",  # D
+                              "Phasic spiking",  # E
+                              "Accommodation",  # F
+                              "Threshold\nvariability",  # G
+                              "Rebound spike",  # H
+                              "Class 2",  # I
+                              "Integrator",  # J
+                              "Input\nbistability",  # K
+                              "Hyperpolarizing\nspiking",  # L
+                              "Hyperpolarizing\nbursting",   # M
+                              "Tonic bursting",  # N
+                              "Phasic bursting",  # O
+                              "Rebound burst",  # P
+                              "Mixed mode",  # Q
+                              "Afterpotentials",  # R
+                              "Basal\nbistability",  # S
+                              "Preferred\nfrequency",  # T
+                              "Spike latency"  # U
+                              ]
+        self.patternLabels = ["ID",
+                              "Regular",
+                              "Single burst",
+                              "Multi-burst",
+                              "Mixed",
+                              "Unstructured"
+                              ]
+        # mapping from all 20 to major
+        self.patternMapping = {
+            "Regular": ["Spike Pattern", "Tonic spiking", "Input\nbistability", "Mixed mode"],
+            "Single burst": ["Tonic bursting", "Phasic bursting"],
+            "Multi-burst": ["Hyperpolarizing\nspiking", "Hyperpolarizing\nbursting", "Afterpotentials", "Basal\nbistability"],
+            "Mixed": ["Class 1", "Spike frequency\nadaptation", "Phasic spiking", "Rebound spike", "Integrator", "Rebound burst"],
+            "Unstructured": ["Accommodation", "Threshold\nvariability", "Class 2", "Preferred\nfrequency"]
+        }  # TODO add spike latency
+
         self.spikePatternTable = QTableWidget()
         # Example rows, adjust as needed
         self.spikePatternTable.setRowCount(1)
@@ -628,7 +724,7 @@ class WiN_GUI_Window(QMainWindow):
 
         layout = QGridLayout()
         layout.addWidget(self.spikePatternTable, 0, 0)
-        self.tab2.setLayout(layout)
+        self.spike_pattern_tab.setLayout(layout)
 
     @QtCore.pyqtSlot()
     def drawCanvas(self):
@@ -972,6 +1068,12 @@ class WiN_GUI_Window(QMainWindow):
         """Update the repetition according to the dial."""
         self.dialRepetition.sliderReleased.connect(self._updateDialRepetition)
         self.simulate_event.emit()
+
+    def _onDialPressed(self):
+        self.dialRepetition.setCursor(Qt.CursorShape.ClosedHandCursor)
+
+    def _onDialReleased(self):
+        self.dialRepetition.setCursor(Qt.CursorShape.OpenHandCursor)
 
     def _updateDt(self):
         """Recalculate the input data and neuron output with new dt."""
