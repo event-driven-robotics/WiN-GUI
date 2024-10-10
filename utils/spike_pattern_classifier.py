@@ -403,31 +403,48 @@ def classifySpikes(generator):
 
     predictions_out_list = []
     softmax_out_list = []
+    
     generatorObject = tqdm(generator, desc="Classifying spikes", total=len(
         generator), position=0, leave=True)
     for spikes, _ in generatorObject:
         predictions_list = []
         softmax_list = []
+
         channelObject = tqdm(
             range(spikes.shape[-1]), desc="Processing channels", position=1, leave=False)
         for sensorId in channelObject:
-            if torch.sum(spikes[:, :, sensorId]) == 0:
-                predictions_list.append(['No spikes'])
-                softmax_list.append([np.zeros(20)])
-            else:
-                sensor_spikes = spikes[:, :, sensorId].to(device).unsqueeze(2)
-                spks_out = runSNN(inputs=sensor_spikes,
-                                nb_steps=1000, layers=layers, device=device)
+            nb_spikes = torch.sum(spikes[:, :, sensorId], axis=1)
+            sensor_spikes = spikes[:, :, sensorId].to(device).unsqueeze(2)
 
-                spks_sum = torch.sum(spks_out, 1)  # sum over time
-                max_activity_idc = torch.argmax(
-                    spks_sum, 1)     # argmax over output units
-                # MN-defined label of the spiking behaviour
-                prediction = [labels_mapping[list(labels_mapping.keys())[
-                    idx.item()]] for idx in max_activity_idc]
-                softmax = torch.exp(log_softmax_fn(spks_sum))
-                predictions_list.append(prediction)
-                softmax_list.append(softmax.cpu().detach().numpy())
+            # Identify trials with 0 spikes
+            zero_spike_trials = (nb_spikes == 0)
+
+            # Filter out trials with 0 spikes
+            non_zero_spike_trials = ~zero_spike_trials
+            filtered_sensor_spikes = sensor_spikes[non_zero_spike_trials]
+
+            # Run SNN only on trials with non-zero spikes
+            spks_out = runSNN(inputs=filtered_sensor_spikes, nb_steps=1000, layers=layers, device=device)
+            spks_sum = torch.sum(spks_out, 1)  # sum over time
+            max_activity_idc = torch.argmax(spks_sum, 1)  # argmax over output units
+
+            # MN-defined label of the spiking behaviour
+            prediction = [labels_mapping[list(labels_mapping.keys())[idx.item()]] for idx in max_activity_idc]
+            softmax = torch.exp(log_softmax_fn(spks_sum))
+
+            # Initialize prediction_list and softmax_list with default values for zero spike trials
+            predictions = ["No spikes"] * len(nb_spikes)
+            softmaxs = [np.zeros(20)] * len(nb_spikes)
+
+            # Fill in the values for non-zero spike trials
+            non_zero_indices = torch.flatten(torch.nonzero(non_zero_spike_trials)).tolist()
+            for i, idx in enumerate(non_zero_indices):
+                predictions[idx] = prediction[i]
+                softmaxs[idx] = softmax[i].cpu().detach().numpy()
+
+            # Append the results to the final lists
+            predictions_list.append(predictions)
+            softmax_list.append(softmaxs)
 
         # Convert lists to NumPy arrays
         predictions_list = np.array(predictions_list)
