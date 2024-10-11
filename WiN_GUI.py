@@ -265,6 +265,8 @@ class WiN_GUI_Window(QMainWindow):
         self.tmp_folder = tempfile.mkdtemp(
             dir=self.tmp_dir)  # Create a temporary folder
 
+        self.dataLoaded = False
+
         # setting defaults
         self.upsample_fac = 1
         self.scale = 1
@@ -1187,6 +1189,7 @@ class WiN_GUI_Window(QMainWindow):
                 # Remove the dial widget from the layout
                 self.dialRepetition.setParent(None)
                 self.dialRepetition.deleteLater()
+            self.dataLoaded = True
 
     def _loadData(self):
         """Load the data from the file."""
@@ -1212,7 +1215,8 @@ class WiN_GUI_Window(QMainWindow):
     def _updateDialRepetition(self):
         """Update the repetition according to the dial."""
         self.dialRepetition.sliderReleased.connect(self._updateDialRepetition)
-        self.simulate_event.emit()
+        if self.dataLoaded:
+            self.simulate_event.emit()
         if self.calcSpikePatternClassification:
             self.classify_event.emit()
 
@@ -1233,7 +1237,8 @@ class WiN_GUI_Window(QMainWindow):
         self.data_steps = data_steps * self.upsample_fac
         # here we change the number of computed time steps according to the upsample factor
         self._updateData()
-        self.simulate_event.emit()
+        if self.dataLoaded:
+            self.simulate_event.emit()
         if self.calcSpikePatternClassification:
             self.classify_event.emit()
 
@@ -1241,7 +1246,8 @@ class WiN_GUI_Window(QMainWindow):
         """Update data according to filter signal checkbox."""
         self.filterSignal = self.sender().isChecked()
         self._updateData()
-        self.simulate_event.emit()
+        if self.dataLoaded:
+            self.simulate_event.emit()
         if self.calcSpikePatternClassification:
             self.classify_event.emit()
 
@@ -1249,7 +1255,8 @@ class WiN_GUI_Window(QMainWindow):
         """Update data according to normalize data checkbox."""
         self.normalizeData = self.sender().isChecked()
         self._updateData()
-        self.simulate_event.emit()
+        if self.dataLoaded:
+            self.simulate_event.emit()
         if self.calcSpikePatternClassification:
             self.classify_event.emit()
 
@@ -1264,7 +1271,8 @@ class WiN_GUI_Window(QMainWindow):
             self.sliderValues[id] = value
             self.sliderParamLabel[id].setText(
                 str(value / int(self.factor[id])))
-        self.simulate_event.emit()
+        if self.dataLoaded:
+            self.simulate_event.emit()
         if self.calcSpikePatternClassification:
             self.classify_event.emit()
 
@@ -1274,7 +1282,8 @@ class WiN_GUI_Window(QMainWindow):
         self.scale_label.setText(str(value))
         self.scale = value
         self._updateData()
-        self.simulate_event.emit()
+        if self.dataLoaded:
+            self.simulate_event.emit()
         if self.calcSpikePatternClassification:
             self.classify_event.emit()
 
@@ -1291,7 +1300,8 @@ class WiN_GUI_Window(QMainWindow):
             self.channels = np.ones(self.data.shape[-1], dtype=bool)
         self._resetLayout(self.parametersLayout, self.channel_grid)
         self.createChannelSelection()
-        self.simulate_event.emit()
+        if self.dataLoaded:
+            self.simulate_event.emit()
         if self.calcSpikePatternClassification:
             self.classify_event.emit()
 
@@ -1317,7 +1327,8 @@ class WiN_GUI_Window(QMainWindow):
         """
         self.startTrialAtNull = self.sender().isChecked()
         self._updateData()
-        self.simulate_event.emit()
+        if self.dataLoaded:
+            self.simulate_event.emit()
         if self.calcSpikePatternClassification:
             self.classify_event.emit()
 
