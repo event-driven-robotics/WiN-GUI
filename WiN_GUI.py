@@ -741,28 +741,29 @@ class WiN_GUI_Window(QMainWindow):
         if self.calcSpikePatternClassification:
             if self.showSubClasses:
                 # show all 20 classes
-                self.patternLabels = ["ID",
-                                      "Tonic spiking",  # A
-                                      "Class 1",  # B
-                                      "Spike frequency\nadaptation",  # C
-                                      "Phasic spiking",  # D
-                                      "Accommodation",  # E
-                                      "Threshold\nvariability",  # F
-                                      "Rebound spike",  # G
-                                      "Class 2",  # H
-                                      "Integrator",  # I
-                                      "Input\nbistability",  # J
-                                      "Hyperpolarizing\nspiking",  # K
-                                      "Hyperpolarizing\nbursting",  # L
-                                      "Tonic bursting",  # M
-                                      "Phasic bursting",  # N
-                                      "Rebound burst",  # O
-                                      "Mixed mode",  # P
-                                      "Afterpotentials",  # Q
-                                      "Basal\nbistability",  # R
-                                      "Preferred\nfrequency",  # S
-                                      "Spike latency"  # T
-                                      ]
+                patternLabels = ["ID",
+                                 "Major",
+                                 "Tonic spiking",  # A
+                                 "Class 1",  # B
+                                 "Spike frequency\nadaptation",  # C
+                                 "Phasic spiking",  # D
+                                 "Accommodation",  # E
+                                 "Threshold\nvariability",  # F
+                                 "Rebound spike",  # G
+                                 "Class 2",  # H
+                                 "Integrator",  # I
+                                 "Input\nbistability",  # J
+                                 "Hyperpolarizing\nspiking",  # K
+                                 "Hyperpolarizing\nbursting",  # L
+                                 "Tonic bursting",  # M
+                                 "Phasic bursting",  # N
+                                 "Rebound burst",  # O
+                                 "Mixed mode",  # P
+                                 "Afterpotentials",  # Q
+                                 "Basal\nbistability",  # R
+                                 "Preferred\nfrequency",  # S
+                                 "Spike latency"  # T
+                ]
             else:
                 # show only major classes
                 """
@@ -773,29 +774,20 @@ class WiN_GUI_Window(QMainWindow):
                 Unstructured: F, G, I, T
                 """
 
-                self.patternLabels = ["ID",
-                                      "Regular",
-                                      "Single burst",
-                                      "Multi-burst",
-                                      "Mixed",
-                                      "Unstructured"
-                                      ]
-
-                # mapping from all 20 to major
-                self.patternMapping = {
-                    "Regular": ["Tonic spiking", "Class 1", "Hyperpolarizing\nspiking", "Afterpotentials"],
-                    "Single burst": ["Phasic bursting", "Rebound burst"],
-                    "Multi-burst": ["Hyperpolarizing\nbursting", "Tonic bursting", "Basal\nbistability", "Preferred\nfrequency"],
-                    "Mixed": ["Spike frequency\nadaptation", "Phasic spiking", "Accommodation", "Class 2", "Input\nbistability", "Mixed mode"],
-                    "Unstructured": ["Threshold\nvariability", "Rebound spike", "Integrator", "Spike latency"]
-                }
+                patternLabels = ["ID",
+                                 "Major",
+                                 "Regular",
+                                 "Single burst",
+                                 "Multi-burst",
+                                 "Mixed",
+                                 "Unstructured"
+                ]
 
             self.spikePatternTable = QTableWidget()
             self.spikePatternTable.setRowCount(1)
             # Two columns: ID and Spike Pattern
-            self.spikePatternTable.setColumnCount(len(self.patternLabels))
-            self.spikePatternTable.setHorizontalHeaderLabels(
-                self.patternLabels)
+            self.spikePatternTable.setColumnCount(len(patternLabels))
+            self.spikePatternTable.setHorizontalHeaderLabels(patternLabels)
 
             self.spikePatternLayout.addWidget(self.spikePatternTable, 0, 0)
         else:
@@ -916,7 +908,7 @@ class WiN_GUI_Window(QMainWindow):
     def writeTable(self):
         """Update the spike pattern visualizer."""
         if self.showSubClasses:
-            self.patternLabels = ["ID",
+            self.patternLabels = [
                                   "Tonic spiking",  # A
                                   "Class 1",  # B
                                   "Spike frequency\nadaptation",  # C
@@ -939,8 +931,30 @@ class WiN_GUI_Window(QMainWindow):
                                   "Spike latency"  # T
                                   ]
         else:
+            self.patternLabelsSubClasses = [
+                                  "Tonic spiking",  # A
+                                  "Class 1",  # B
+                                  "Spike frequency\nadaptation",  # C
+                                  "Phasic spiking",  # D
+                                  "Accommodation",  # E
+                                  "Threshold\nvariability",  # F
+                                  "Rebound spike",  # G
+                                  "Class 2",  # H
+                                  "Integrator",  # I
+                                  "Input\nbistability",  # J
+                                  "Hyperpolarizing\nspiking",  # K
+                                  "Hyperpolarizing\nbursting",  # L
+                                  "Tonic bursting",  # M
+                                  "Phasic bursting",  # N
+                                  "Rebound burst",  # O
+                                  "Mixed mode",  # P
+                                  "Afterpotentials",  # Q
+                                  "Basal\nbistability",  # R
+                                  "Preferred\nfrequency",  # S
+                                  "Spike latency"  # T
+                                  ]
             # mapping from all 20 to major
-            self.patternMapping = {
+            self.patternLabels = {
                 "Regular": ["Tonic spiking", "Class 1", "Hyperpolarizing\nspiking", "Afterpotentials"],
                 "Single burst": ["Phasic bursting", "Rebound burst"],
                 "Multi-burst": ["Hyperpolarizing\nbursting", "Tonic bursting", "Basal\nbistability", "Preferred\nfrequency"],
@@ -949,59 +963,107 @@ class WiN_GUI_Window(QMainWindow):
             }
             # Create reverse mapping
             self.reversePatternMapping = {}
-            for key, names in self.patternMapping.items():
+            for key, names in self.patternLabels.items():
                 for name in names:
                     self.reversePatternMapping[name] = key
             pass
 
         # Function to get the key for a given name
         def get_pattern_key(name):
-            return self.reversePatternMapping.get(name, "Unknown")
+            return self.reversePatternMapping.get(name, "No spikes")
+        
+        # Function to get the index of the subclass for a given major class name
+        def get_subclass_indices(major_class_name):
+            # Retrieve the list of subclass names for the given major class
+            subclass_names = self.patternLabels.get(major_class_name, [])
+            
+            # Find the indices of these subclass names in self.patternLabelsSubClasses
+            indices = [self.patternLabelsSubClasses.index(name) for name in subclass_names]
+            
+            return indices
 
         # Clear the table
         self.spikePatternTable.setRowCount(self.output_data.shape[-1])
         # Add new rows
-        for i in range(self.output_data.shape[-1]):
+        for sensorID in range(self.output_data.shape[-1]):
+            # ID
             self.spikePatternTable.setItem(
-                i, 0, QTableWidgetItem(str(i)))  # ID
+                sensorID, 0, QTableWidgetItem(str(sensorID)))  # ID
             
             if self.showSubClasses:
-                self.spikePatternTable.setItem(i, 1, QTableWidgetItem(
-                    self.finalPredictionList[i]))  # predicted spike pattern
-            else:
-                self.spikePatternTable.setItem(i, 1, QTableWidgetItem(
-                    get_pattern_key(self.finalPredictionList[i])))  # predicted spike pattern
+                # Final prediction
+                self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
+                    self.finalPredictionList[sensorID]))  # predicted spike pattern
                 
-            for pattern_label_counter in range(20):
-                if self.finalPredictionList[i] == 'No spikes':
-                    item = QTableWidgetItem("0 %")
-                    # color the cell white
-                    item.setBackground(QColor(255, 255, 255))
-                    self.spikePatternTable.setItem(
-                        i, pattern_label_counter + 2, item)
-                else:
-                    probability = self.normalized_softmax[i,
-                                                          pattern_label_counter]
-                    percentage = int((probability * 100) + 0.5)
-                    item = QTableWidgetItem(str(percentage) + " %")
+                for pattern_label_counter in range(len(self.patternLabels)):
+                    if self.finalPredictionList[sensorID] == 'No spikes':
+                        item = QTableWidgetItem("0 %")
 
-                    # Calculate color based on probability
-                    red = int(probability * 255)
-                    blue = int((1 - probability) * 255)
-                    green = 5
-                    color = QColor(red, green, blue)
+                        # color the cell white
+                        item.setBackground(QColor(255, 255, 255))
+                        self.spikePatternTable.setItem(
+                            sensorID, pattern_label_counter + 2, item)
+                    else:
+                        probability = self.normalized_softmax[sensorID,
+                                                            pattern_label_counter]
+                        percentage = int((probability * 100) + 0.5)
+                        item = QTableWidgetItem(str(percentage) + " %")
 
-                    # Adjust color lightness based on distance from 0.5
-                    distance_from_mid = abs(probability - 0.5)
-                    lightness_factor = EXTREME_LIGHTNESS + \
-                        int((1 - distance_from_mid * 2) *
-                            (MIDPOINT_LIGHTNESS - EXTREME_LIGHTNESS))
-                    adjusted_color = color.lighter(lightness_factor)
+                        # Calculate color based on probability
+                        red = int(probability * 255)
+                        blue = int((1 - probability) * 255)
+                        green = 5
+                        color = QColor(red, green, blue)
 
-                    item.setBackground(adjusted_color)
-                    # probability of each pattern
-                    self.spikePatternTable.setItem(
-                        i, pattern_label_counter + 2, item)
+                        # Adjust color lightness based on distance from 0.5
+                        distance_from_mid = abs(probability - 0.5)
+                        lightness_factor = EXTREME_LIGHTNESS + \
+                            int((1 - distance_from_mid * 2) *
+                                (MIDPOINT_LIGHTNESS - EXTREME_LIGHTNESS))
+                        adjusted_color = color.lighter(lightness_factor)
+
+                        item.setBackground(adjusted_color)
+
+                        # probability of each pattern
+                        self.spikePatternTable.setItem(
+                            sensorID, pattern_label_counter + 2, item)
+                        
+            else:
+                # Final prediction
+                self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
+                    get_pattern_key(self.finalPredictionList[sensorID])))  # predicted spike pattern
+                for pattern_label_counter, (key, _) in enumerate(self.patternLabels.items()):
+                    if self.finalPredictionList[sensorID] == 'No spikes':
+                        item = QTableWidgetItem("0 %")
+                        # color the cell white
+                        item.setBackground(QColor(255, 255, 255))
+                        self.spikePatternTable.setItem(
+                            sensorID, pattern_label_counter + 2, item)
+                    else:
+                        idc = get_subclass_indices(key)
+                        probability = np.sum(self.normalized_softmax[sensorID, idc])
+                        percentage = int((probability * 100) + 0.5)
+                        item = QTableWidgetItem(str(percentage) + " %")
+
+                        # Calculate color based on probability
+                        red = int(probability * 255)
+                        blue = int((1 - probability) * 255)
+                        green = 5
+                        color = QColor(red, green, blue)
+
+                        # Adjust color lightness based on distance from 0.5
+                        distance_from_mid = abs(probability - 0.5)
+                        lightness_factor = EXTREME_LIGHTNESS + \
+                            int((1 - distance_from_mid * 2) *
+                                (MIDPOINT_LIGHTNESS - EXTREME_LIGHTNESS))
+                        adjusted_color = color.lighter(lightness_factor)
+
+                        item.setBackground(adjusted_color)
+
+                        # probability of each pattern
+                        self.spikePatternTable.setItem(
+                            sensorID, pattern_label_counter + 2, item)
+            
 
     def resizeEvent(self, event):
         self._updateFontSizes()
