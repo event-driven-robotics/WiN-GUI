@@ -195,6 +195,7 @@ class ClassificationCalc(QObject):
         else:
             generator = prepareDataset(self.main_gui.output_data)
             predictions, softmax = classifySpikes(generator)
+            self.probs = softmax.copy()
             # let us get the most frequent predicted class over all batches
             self.finalPredictionList = []
             for sensorId in range(self.main_gui.output_data.shape[-1]):
@@ -926,6 +927,11 @@ class WiN_GUI_Window(QMainWindow):
     def writeTable(self):
         """Update the spike pattern visualizer."""
         if self.output_data is not None and self.calcSpikePatternClassification:
+            ### REMINDER:
+            # self.classification_calc.probs has shape (n_channels,1,n_behaviours)
+            #   it contains the n_behaviours probabilities for each channel
+            # self.finalPredictionList is a list with n_channels elements
+            #   it contains the individual prediction (based on all the classes) for each channel
             if self.showSubClasses:
                 self.patternLabels = [
                                     "Tonic spiking",  # A
@@ -1000,6 +1006,27 @@ class WiN_GUI_Window(QMainWindow):
                 indices = [self.patternLabelsSubClasses.index(name) for name in subclass_names]
                 
                 return indices
+            
+            # Function to evaluate classification on super-classes
+            def superclass_probabilities(self):
+
+                superclass_probs = []
+                classification = []
+
+                for ch in self.classification_calc.probs:
+                    probs = ch[0].copy()
+                    superclass_softmax_sum = np.zeros(len(self.patternLabels))
+                    for num,superclass in enumerate(list(self.patternLabels.keys())):
+                        for subclass in self.patternLabels[superclass]:
+                            idx = self.patternLabelsSubClasses.index(subclass)
+                            superclass_softmax_sum[num] += probs[idx]
+                    superclass_probs.append(superclass_softmax_sum)
+                    if np.sum(probs) == 0:
+                        classification.append("No spikes")
+                    else:
+                        classification.append(np.argmax(superclass_softmax_sum))
+                
+                return classification, superclass_probs
 
             # Clear the table
             self.spikePatternTable.setRowCount(self.output_data.shape[-1])
@@ -1011,12 +1038,20 @@ class WiN_GUI_Window(QMainWindow):
                 
                 if self.showSubClasses:
                     # Final prediction
-                    self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
-                        self.finalPredictionList[sensorID]))  # predicted spike pattern
+                    if (len(np.where(np.array(self.classification_calc.probs[sensorID])==np.max(self.classification_calc.probs[sensorID]))[0]) > 1) & (self.finalPredictionList[sensorID] != 'No spikes'):
+                        label = QTableWidgetItem("multiple overlap")
+                        font = QFont()
+                        font.setItalic(True)
+                        label.setFont(font)
+                        self.spikePatternTable.setItem(sensorID, 1, label)  # overwrite prediction if multiple classes with equal probabilities
+
+                    else:
+                        self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
+                            self.finalPredictionList[sensorID]))  # predicted spike pattern
                     
                     for pattern_label_counter in range(len(self.patternLabels)):
                         if self.finalPredictionList[sensorID] == 'No spikes':
-                            item = QTableWidgetItem("0 %")
+                            item = QTableWidgetItem("")
 
                             # color the cell white
                             item.setBackground(QColor(255, 255, 255))
@@ -1049,18 +1084,18 @@ class WiN_GUI_Window(QMainWindow):
                             
                 else:
                     # Final prediction
+                    self.finalPredictionList_superclass, probabilities = superclass_probabilities(self)
                     self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
-                        get_pattern_key(self.finalPredictionList[sensorID])))  # predicted spike pattern
+                        list(self.patternLabels.keys())[self.finalPredictionList_superclass[sensorID]] if self.finalPredictionList_superclass[sensorID] != "No spikes" else self.finalPredictionList_superclass[sensorID]))  # predicted spike pattern
                     for pattern_label_counter, (key, _) in enumerate(self.patternLabels.items()):
-                        if self.finalPredictionList[sensorID] == 'No spikes':
-                            item = QTableWidgetItem("0 %")
+                        if self.finalPredictionList_superclass[sensorID] == 'No spikes':
+                            item = QTableWidgetItem("")
                             # color the cell white
                             item.setBackground(QColor(255, 255, 255))
                             self.spikePatternTable.setItem(
                                 sensorID, pattern_label_counter + 2, item)
                         else:
-                            idc = get_subclass_indices(key)
-                            probability = np.sum(self.normalized_softmax[sensorID, idc])
+                            probability = probabilities[sensorID][pattern_label_counter]
                             percentage = int((probability * 100) + 0.5)
                             item = QTableWidgetItem(str(percentage) + " %")
 
