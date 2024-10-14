@@ -1085,8 +1085,16 @@ class WiN_GUI_Window(QMainWindow):
                 else:
                     # Final prediction
                     self.finalPredictionList_superclass, probabilities = superclass_probabilities(self)
-                    self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
-                        list(self.patternLabels.keys())[self.finalPredictionList_superclass[sensorID]] if self.finalPredictionList_superclass[sensorID] != "No spikes" else self.finalPredictionList_superclass[sensorID]))  # predicted spike pattern
+                    if (len(np.where(np.array(probabilities[sensorID])==np.max(probabilities[sensorID]))[0]) > 1) & (self.finalPredictionList_superclass[sensorID] != 'No spikes'):
+                        label = QTableWidgetItem("multiple overlap")
+                        font = QFont()
+                        font.setItalic(True)
+                        label.setFont(font)
+                        self.spikePatternTable.setItem(sensorID, 1, label)  # overwrite prediction if multiple classes with equal probabilities
+                    else:
+                        self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
+                            list(self.patternLabels.keys())[self.finalPredictionList_superclass[sensorID]] if self.finalPredictionList_superclass[sensorID] != "No spikes" else self.finalPredictionList_superclass[sensorID]))  # predicted spike pattern
+                        
                     for pattern_label_counter, (key, _) in enumerate(self.patternLabels.items()):
                         if self.finalPredictionList_superclass[sensorID] == 'No spikes':
                             item = QTableWidgetItem("")
