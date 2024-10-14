@@ -55,7 +55,7 @@ from pydub import AudioSegment
 from pydub.generators import Sawtooth
 from PyQt6 import QtCore
 from PyQt6.QtCore import QEvent, QObject, Qt, QThread, QUrl
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QFileDialog, QGridLayout, QLabel, QMainWindow,
@@ -715,11 +715,11 @@ class WiN_GUI_Window(QMainWindow):
     def createSpikePatternClassifierSection(self):
         # here we need to have two checkboxes, one to activate the calssification and the second to select using super or sub labels
         self.spikePatternClassifierLayout = QGridLayout()
-        title = QLabel("Spike-pattern classification")
+        title = QLabel("Spike-Pattern Classifier")
         self.spikePatternClassifierLayout.addWidget(title, 0, 0)
 
         self.spikePatternClassifierCheckbox = QCheckBox(
-            "Spike-pattern classification")
+            "Pattern classification")
         self.spikePatternClassifierCheckbox.setCursor(
             Qt.CursorShape.PointingHandCursor)
         self.spikePatternClassifierCheckbox.setChecked(False)
@@ -728,7 +728,7 @@ class WiN_GUI_Window(QMainWindow):
         self.spikePatternClassifierLayout.addWidget(
             self.spikePatternClassifierCheckbox, 1, 0, Qt.AlignmentFlag.AlignTop)
 
-        self.superSubLabelCheckbox = QCheckBox("Show sub-classes")
+        self.superSubLabelCheckbox = QCheckBox("Neuronal behaviours")
         self.superSubLabelCheckbox.setCursor(Qt.CursorShape.PointingHandCursor)
         self.superSubLabelCheckbox.setChecked(False)
         self.superSubLabelCheckbox.stateChanged.connect(
@@ -792,11 +792,26 @@ class WiN_GUI_Window(QMainWindow):
             self.spikePatternTable.setColumnCount(len(patternLabels))
             self.spikePatternTable.setHorizontalHeaderLabels(patternLabels)
 
+            index_major = patternLabels.index("Major") 
+            header_major = self.spikePatternTable.horizontalHeaderItem(index_major)
+            # Set the font to bold
+            font_major = QFont()
+            font_major.setBold(True)
+            header_major.setFont(font_major)
+
+            index_italic = [num for num, el in enumerate(patternLabels) if el not in ["ID", "Major"]]
+            for idx in index_italic:
+                header_italic = self.spikePatternTable.horizontalHeaderItem(idx)
+                # Set the font to italic
+                font_italic = QFont()
+                font_italic.setItalic(True)
+                header_italic.setFont(font_italic)
+
             self.spikePatternLayout.addWidget(self.spikePatternTable, 0, 0)
         else:
             # Create a QLabel for the message
             self.spikePatternTable = QLabel(
-                "To calculate the spike-pattern classification, please activate the 'Spike-pattern classification' checkbox in the parameter section.\nFor a fine grained classification, activate the 'Show sub-classes' checkbox.")
+                "To calculate the spike-pattern classification, please activate the 'Pattern classification' checkbox in the parameter section.\nFor the detailed view of all the neuronal behaviours, activate the 'Neuronal behaviours' checkbox.")
             self.spikePatternTable.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             # Add the message label to the layout and center it
