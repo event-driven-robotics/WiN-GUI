@@ -11,8 +11,8 @@ Main Components:
   behavior of neurons.
 - LIF_neuron: A class implementing the Leaky Integrate-and-Fire neuron model. This model is a simple 
   representation of neuronal activity.
-- RLIF_neuron: A class implementing the Recurrent Leaky Integrate-and-Fire neuron model. This model 
-  includes recurrent connections to simulate more complex neuronal dynamics.
+- CuBaLIF_neuron: A class implementing the Current-Based Leaky Integrate-and-Fire neuron model. This model 
+  includes a synaptic current to simulate more complex neuronal dynamics.
 
 Classes and Functions:
 - MN_neuron: A PyTorch module representing the Mihalas-Niebur neuron model.
@@ -25,7 +25,7 @@ Classes and Functions:
 - LIF_neuron: A PyTorch module representing the Leaky Integrate-and-Fire neuron model.
   - __init__(self, nb_inputs, parameters_combination, dt=1/1000, ...): Initializes the neuron with the given parameters.
   - forward(self, input): Defines the forward pass of the neuron model.
-- RLIF_neuron: A PyTorch module representing the Recurrent Leaky Integrate-and-Fire neuron model.
+- CuBaLIF_neuron: A PyTorch module representing the Current-Based Leaky Integrate-and-Fire neuron model.
   - __init__(self, nb_inputs, parameters_combination, dt=1/1000, ...): Initializes the neuron with the given parameters.
   - forward(self, input): Defines the forward pass of the neuron model.
 
@@ -39,7 +39,7 @@ To use this module, ensure that the required dependencies are installed.
 
 Example:
     import torch
-    from neuron_models import MN_neuron, IZ_neuron, LIF_neuron, RLIF_neuron
+    from neuron_models import MN_neuron, IZ_neuron, LIF_neuron, CuBaLIF_neuron
 
     # Define neuron parameters
     nb_inputs = 10
@@ -293,7 +293,8 @@ class LIF_neuron(nn.Module):
         V = self.state.V
         spk = self.state.spk
 
-        V = (self.beta * V + (1.0-self.beta) * x * self.R) * (1.0 - spk)
+        # V = (self.beta * V + (1.0-self.beta) * x * self.R) * (1.0 - spk)
+        V = (self.beta * V + x * self.R) * (1.0 - spk) # reset mechanism: zero
         spk = activation(V-self.threshold)
 
         self.state = self.NeuronState(V=V, spk=spk)
@@ -304,7 +305,7 @@ class LIF_neuron(nn.Module):
         self.state = None
 
 
-class RLIF_neuron(nn.Module):
+class CuBaLIF_neuron(nn.Module):
     NeuronState = namedtuple("NeuronState", ["V", "syn", "spk"])
 
     def __init__(
@@ -317,7 +318,7 @@ class RLIF_neuron(nn.Module):
             thr=1.0,
             R=1.0,
     ):
-        super(RLIF_neuron, self).__init__()
+        super(CuBaLIF_neuron, self).__init__()
 
         self.nb_inputs = nb_inputs
         self.alpha = alpha
@@ -350,9 +351,11 @@ class RLIF_neuron(nn.Module):
         spk = self.state.spk
         syn = self.state.syn
 
-        syn = self.alpha*syn + spk
-        V = (self.beta * V + (1.0-self.beta) * x *
-             self.R + (1.0-self.beta)*syn) * (1.0 - spk)
+        # syn = self.alpha*syn + spk
+        # V = (self.beta * V + (1.0-self.beta) * x *
+        #      self.R + (1.0-self.beta)*syn) * (1.0 - spk)
+        syn = self.alpha*syn + x*self.R
+        V = (self.beta * V + syn) * (1.0 - spk) # reset mechanism: zero
         spk = activation(V-self.threshold)
 
         self.state = self.NeuronState(V=V, syn=syn, spk=spk)

@@ -64,7 +64,7 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDial,
                              QWidget)
 
 from utils.data_management import load_data, preprocess_data, split_data
-from utils.neuron_models import IZ_neuron, LIF_neuron, MN_neuron, RLIF_neuron
+from utils.neuron_models import IZ_neuron, LIF_neuron, MN_neuron, CuBaLIF_neuron
 from utils.spike_pattern_classifier import classifySpikes, prepareDataset
 
 WINDOW_WIDTH, WINDOW_HEIGTH = 1500, 750
@@ -133,8 +133,8 @@ class EncodingCalc(QObject):
                 dt=self.main_gui.dt / self.main_gui.dt_slider.value(),
             )
 
-        elif self.main_gui.neuron_model_name == "Recurrent leaky integrate-and-fire":
-            self.neurons = RLIF_neuron(
+        elif self.main_gui.neuron_model_name == "Current-based leaky integrate-and-fire":
+            self.neurons = CuBaLIF_neuron(
                 len(self.main_gui.channels),
                 params,
                 dt=self.main_gui.dt / self.main_gui.dt_slider.value(),
@@ -425,8 +425,8 @@ class WiN_GUI_Window(QMainWindow):
             num_figures = len(IZ_neuron.NeuronState._fields)
         elif self.neuron_model_name == "Leaky integrate-and-fire":
             num_figures = len(LIF_neuron.NeuronState._fields)
-        elif self.neuron_model_name == "Recurrent leaky integrate-and-fire":
-            num_figures = len(RLIF_neuron.NeuronState._fields)
+        elif self.neuron_model_name == "Current-based leaky integrate-and-fire":
+            num_figures = len(CuBaLIF_neuron.NeuronState._fields)
         else:
             ValueError("No neuron model selected.")
         num_figures += 1  # add raster plot
@@ -561,7 +561,7 @@ class WiN_GUI_Window(QMainWindow):
             "Mihalas-Niebur",
             "Izhikevich",
             "Leaky integrate-and-fire",
-            "Recurrent leaky integrate-and-fire",
+            "Current-based leaky integrate-and-fire",
         ]
         self.combo_box_neuron_model.addItems(neuron_neuron_model_names)
         self.combo_box_neuron_model.currentTextChanged.connect(
@@ -870,8 +870,8 @@ class WiN_GUI_Window(QMainWindow):
             self.neuronStateVariables = IZ_neuron.NeuronState._fields
         elif self.neuron_model_name == "Leaky integrate-and-fire":
             self.neuronStateVariables = LIF_neuron.NeuronState._fields
-        elif self.neuron_model_name == "Recurrent leaky integrate-and-fire":
-            self.neuronStateVariables = RLIF_neuron.NeuronState._fields
+        elif self.neuron_model_name == "Current-based leaky integrate-and-fire":
+            self.neuronStateVariables = CuBaLIF_neuron.NeuronState._fields
         else:
             ValueError("No neuron model selected.")
 
@@ -1246,7 +1246,7 @@ class WiN_GUI_Window(QMainWindow):
         elif self.neuron_model_name == "Leaky integrate-and-fire":
             from utils.neuron_parameters import lif_parameter
             self.parameter = lif_parameter
-        elif self.neuron_model_name == "Recurrent leaky integrate-and-fire":
+        elif self.neuron_model_name == "Current-based leaky integrate-and-fire":
             from utils.neuron_parameters import rlif_parameter
             self.parameter = rlif_parameter
         else:
