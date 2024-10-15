@@ -1039,7 +1039,7 @@ class WiN_GUI_Window(QMainWindow):
                 if self.showSubClasses:
                     # Final prediction
                     if (len(np.where(np.array(self.classification_calc.probs[sensorID])==np.max(self.classification_calc.probs[sensorID]))[0]) > 1) & (self.finalPredictionList[sensorID] != 'No spikes'):
-                        label = QTableWidgetItem("multiple overlap")
+                        label = QTableWidgetItem("multiple overlaps")
                         font = QFont()
                         font.setItalic(True)
                         label.setFont(font)

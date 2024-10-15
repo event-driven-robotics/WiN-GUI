@@ -129,29 +129,31 @@ def prepareDataset(data):
     target_nb_samples = 1000
     stride = 100
 
-    if neuronSpikeTimesDense.shape[0] < target_nb_samples:
-        # we need the data to be repeated
-        sensor_idc = torch.arange(neuronSpikeTimesDense.shape[-1])
-        repeats = 1000 // neuronSpikeTimesDense.shape[0]
-        remainder = 1000 % neuronSpikeTimesDense.shape[0]
+    # if neuronSpikeTimesDense.shape[0] < target_nb_samples:
+    #     # we need the data to be repeated
+    #     sensor_idc = torch.arange(neuronSpikeTimesDense.shape[-1])
+    #     repeats = 1000 // neuronSpikeTimesDense.shape[0]
+    #     remainder = 1000 % neuronSpikeTimesDense.shape[0]
 
-        # Create an array of zeros
-        neuronSpikeTimesDenseRepeted = torch.zeros(
-            (target_nb_samples, neuronSpikeTimesDense.shape[1]), dtype=neuronSpikeTimesDense.dtype)
+    #     # Create an array of zeros
+    #     neuronSpikeTimesDenseRepeted = torch.zeros(
+    #         (target_nb_samples, neuronSpikeTimesDense.shape[1]), dtype=neuronSpikeTimesDense.dtype)
 
-        for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
-            # Repeat and concatenate the array to get exactly 1000 entries
-            neuronSpikeTimesDenseRepeted[:, sensor_idx] = torch.cat([
-                neuronSpikeTimesDense[:, sensor_idx].repeat(repeats),
-                neuronSpikeTimesDense[:remainder, sensor_idx]
-            ])
+    #     for sensor_idx in range(neuronSpikeTimesDense.shape[1]):
+    #         # Repeat and concatenate the array to get exactly 1000 entries
+    #         neuronSpikeTimesDenseRepeted[:, sensor_idx] = torch.cat([
+    #             neuronSpikeTimesDense[:, sensor_idx].repeat(repeats),
+    #             neuronSpikeTimesDense[:remainder, sensor_idx]
+    #         ])
 
-        neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted.unsqueeze(0)
-        # Add extra dimension to match the shape
-        sensor_idc = sensor_idc.unsqueeze(0)
-        batch_size = 1
+    #     neuronSpikeTimesDense = neuronSpikeTimesDenseRepeted.unsqueeze(0)
+    #     print(neuronSpikeTimesDense.shape)
+    #     # Add extra dimension to match the shape
+    #     sensor_idc = sensor_idc.unsqueeze(0)
+    #     print(sensor_idc.shape)
+    #     batch_size = 1
 
-    elif neuronSpikeTimesDense.shape[0] > target_nb_samples:
+    if neuronSpikeTimesDense.shape[0] > target_nb_samples:
         nb_splits = (
             neuronSpikeTimesDense.shape[0] - target_nb_samples) // stride + 1
 
@@ -424,7 +426,7 @@ def classifySpikes(generator):
             filtered_sensor_spikes = sensor_spikes[non_zero_spike_trials]
 
             # Run SNN only on trials with non-zero spikes
-            spks_out = runSNN(inputs=filtered_sensor_spikes, nb_steps=1000, layers=layers, device=device)
+            spks_out = runSNN(inputs=filtered_sensor_spikes, nb_steps=spikes.shape[1], layers=layers, device=device)
             spks_sum = torch.sum(spks_out, 1)  # sum over time
             max_activity_idc = torch.argmax(spks_sum, 1)  # argmax over output units
 
