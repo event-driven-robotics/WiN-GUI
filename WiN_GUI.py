@@ -1039,11 +1039,11 @@ class WiN_GUI_Window(QMainWindow):
                 if self.showSubClasses:
                     # Final prediction
                     if (len(np.where(np.array(self.classification_calc.probs[sensorID])==np.max(self.classification_calc.probs[sensorID]))[0]) > 1) & (self.finalPredictionList[sensorID] != 'No spikes'):
-                        label = QTableWidgetItem("multiple overlaps")
+                        item = QTableWidgetItem("multiple overlaps")
                         font = QFont()
                         font.setItalic(True)
-                        label.setFont(font)
-                        self.spikePatternTable.setItem(sensorID, 1, label)  # overwrite prediction if multiple classes with equal probabilities
+                        item.setFont(font)
+                        self.spikePatternTable.setItem(sensorID, 1, item)  # overwrite prediction if multiple classes with equal probabilities
 
                     else:
                         self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
@@ -1060,8 +1060,12 @@ class WiN_GUI_Window(QMainWindow):
                         else:
                             probability = self.normalized_softmax[sensorID,
                                                                 pattern_label_counter]
-                            percentage = int((probability * 100) + 0.5)
+                            percentage = np.round(probability*100,1)
                             item = QTableWidgetItem(str(percentage) + " %")
+                            font = QFont()
+                            font.setItalic(True)
+                            item.setFont(font)
+                            item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
                             # Calculate color based on probability
                             red = int(probability * 255)
@@ -1086,14 +1090,15 @@ class WiN_GUI_Window(QMainWindow):
                     # Final prediction
                     self.finalPredictionList_superclass, probabilities = superclass_probabilities(self)
                     if (len(np.where(np.array(probabilities[sensorID])==np.max(probabilities[sensorID]))[0]) > 1) & (self.finalPredictionList_superclass[sensorID] != 'No spikes'):
-                        label = QTableWidgetItem("multiple overlap")
+                        item = QTableWidgetItem("multiple overlaps")
                         font = QFont()
                         font.setItalic(True)
-                        label.setFont(font)
-                        self.spikePatternTable.setItem(sensorID, 1, label)  # overwrite prediction if multiple classes with equal probabilities
+                        item.setFont(font)
+                        self.spikePatternTable.setItem(sensorID, 1, item)  # overwrite prediction if multiple classes with equal probabilities
                     else:
-                        self.spikePatternTable.setItem(sensorID, 1, QTableWidgetItem(
-                            list(self.patternLabels.keys())[self.finalPredictionList_superclass[sensorID]] if self.finalPredictionList_superclass[sensorID] != "No spikes" else self.finalPredictionList_superclass[sensorID]))  # predicted spike pattern
+                        item = QTableWidgetItem(
+                            list(self.patternLabels.keys())[self.finalPredictionList_superclass[sensorID]] if self.finalPredictionList_superclass[sensorID] != "No spikes" else self.finalPredictionList_superclass[sensorID])
+                        self.spikePatternTable.setItem(sensorID, 1, item)  # predicted spike pattern
                         
                     for pattern_label_counter, (key, _) in enumerate(self.patternLabels.items()):
                         if self.finalPredictionList_superclass[sensorID] == 'No spikes':
@@ -1104,8 +1109,12 @@ class WiN_GUI_Window(QMainWindow):
                                 sensorID, pattern_label_counter + 2, item)
                         else:
                             probability = probabilities[sensorID][pattern_label_counter]
-                            percentage = int((probability * 100) + 0.5)
+                            percentage = np.round(probability*100,1)
                             item = QTableWidgetItem(str(percentage) + " %")
+                            font = QFont()
+                            font.setItalic(True)
+                            item.setFont(font)
+                            item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
                             # Calculate color based on probability
                             red = int(probability * 255)
