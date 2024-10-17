@@ -986,26 +986,6 @@ class WiN_GUI_Window(QMainWindow):
                     "Mixed": ["Spike frequency\nadaptation", "Phasic spiking", "Accommodation", "Class 2", "Input\nbistability", "Mixed mode"],
                     "Unstructured": ["Threshold\nvariability", "Rebound spike", "Integrator", "Spike latency"]
                 }
-                # Create reverse mapping
-                self.reversePatternMapping = {}
-                for key, names in self.patternLabels.items():
-                    for name in names:
-                        self.reversePatternMapping[name] = key
-                pass
-
-            # Function to get the key for a given name
-            def get_pattern_key(name):
-                return self.reversePatternMapping.get(name, "No spikes")
-            
-            # Function to get the index of the subclass for a given major class name
-            def get_subclass_indices(major_class_name):
-                # Retrieve the list of subclass names for the given major class
-                subclass_names = self.patternLabels.get(major_class_name, [])
-                
-                # Find the indices of these subclass names in self.patternLabelsSubClasses
-                indices = [self.patternLabelsSubClasses.index(name) for name in subclass_names]
-                
-                return indices
             
             # Function to evaluate classification on super-classes
             def superclass_probabilities(self):
@@ -1039,7 +1019,7 @@ class WiN_GUI_Window(QMainWindow):
                 if self.showSubClasses:
                     # Final prediction
                     if (len(np.where(np.array(self.classification_calc.probs[sensorID])==np.max(self.classification_calc.probs[sensorID]))[0]) > 1) & (self.finalPredictionList[sensorID] != 'No spikes'):
-                        item = QTableWidgetItem("multiple overlaps")
+                        item = QTableWidgetItem("Class overlap")  # Class ambiguity
                         font = QFont()
                         font.setItalic(True)
                         item.setFont(font)
@@ -1090,7 +1070,7 @@ class WiN_GUI_Window(QMainWindow):
                     # Final prediction
                     self.finalPredictionList_superclass, probabilities = superclass_probabilities(self)
                     if (len(np.where(np.array(probabilities[sensorID])==np.max(probabilities[sensorID]))[0]) > 1) & (self.finalPredictionList_superclass[sensorID] != 'No spikes'):
-                        item = QTableWidgetItem("multiple overlaps")
+                        item = QTableWidgetItem("Class overlap")  # Class ambiguity
                         font = QFont()
                         font.setItalic(True)
                         item.setFont(font)
