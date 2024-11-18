@@ -1,9 +1,6 @@
 !*/
 __pycache__
 .vscode
-paper/v2/logs/*
-!paper/v2/plots/optimized/spike_classifier/mn_classes/*
-paper/v2/training/*
-paper/v2/plot_results.ipynb
+paper/*
 tmp/*
 env_nteEnc.yml
