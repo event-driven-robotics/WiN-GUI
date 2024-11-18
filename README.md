@@ -71,3 +71,9 @@ apt-get -y install '^libxcb.*-dev' libx11-xcb-dev libglu1-mesa-dev libxrender-de
 apt packages:
 apt -y install ffmpeg, portaudio19-dev
 
+### Trouble shooting
+When running on an older Python version with the most recent PyQT6 package you might ancounter the following error:
+'''symbol lookup error: [your_path]/python3.8/site-packages/PyQt6/Qt6/plugins/platforms/../../lib/libQt6WaylandClient.so.6: undefined symbol: wl_proxy_marshal_flags'''
+
+To fix this you can enforce the use of x11 instead of Wayland by adding the following line to your bashrc:
+'''export QT_QPA_PLATFORM=xcb'''

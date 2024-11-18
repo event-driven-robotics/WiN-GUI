@@ -1,49 +1,69 @@
+"""
+neuron_models.py
+
+This module implements various neuron models for use in spiking neural network (SNN) simulations. 
+The primary focus is on biologically plausible neuron models, such as the Mihalas-Niebur (MN) neuron model.
+
+Main Components:
+- MN_neuron: A class implementing the Mihalas-Niebur neuron model. This model includes parameters for 
+  synaptic weights, membrane potential, and other neuron-specific properties.
+- IZ_neuron: A class implementing the Izhikevich neuron model. This model simulates spiking and bursting 
+  behavior of neurons.
+- LIF_neuron: A class implementing the Leaky Integrate-and-Fire neuron model. This model is a simple 
+  representation of neuronal activity.
+- CuBaLIF_neuron: A class implementing the Current-Based Leaky Integrate-and-Fire neuron model. This model 
+  includes a synaptic current to simulate more complex neuronal dynamics.
+
+Classes and Functions:
+- MN_neuron: A PyTorch module representing the Mihalas-Niebur neuron model.
+  - NeuronState: A named tuple to store the state variables of the neuron (V, i1, i2, Thr, spk).
+  - __init__(self, nb_inputs, parameters_combination, dt=1/1000, ...): Initializes the neuron with the given parameters.
+  - forward(self, input): Defines the forward pass of the neuron model.
+- IZ_neuron: A PyTorch module representing the Izhikevich neuron model.
+  - __init__(self, nb_inputs, parameters_combination, dt=1/1000, ...): Initializes the neuron with the given parameters.
+  - forward(self, input): Defines the forward pass of the neuron model.
+- LIF_neuron: A PyTorch module representing the Leaky Integrate-and-Fire neuron model.
+  - __init__(self, nb_inputs, parameters_combination, dt=1/1000, ...): Initializes the neuron with the given parameters.
+  - forward(self, input): Defines the forward pass of the neuron model.
+- CuBaLIF_neuron: A PyTorch module representing the Current-Based Leaky Integrate-and-Fire neuron model.
+  - __init__(self, nb_inputs, parameters_combination, dt=1/1000, ...): Initializes the neuron with the given parameters.
+  - forward(self, input): Defines the forward pass of the neuron model.
+
+Dependencies:
+- torch: PyTorch library for tensor computations and neural network operations.
+- surrogate_gradient: Custom autograd function for spiking nonlinearity with a surrogate gradient.
+
+Usage:
+This module is intended to be used as part of the WiN-GUI project for simulating spiking neural networks. 
+To use this module, ensure that the required dependencies are installed.
+
+Example:
+    import torch
+    from neuron_models import MN_neuron, IZ_neuron, LIF_neuron, CuBaLIF_neuron
+
+    # Define neuron parameters
+    nb_inputs = 10
+    parameters_combination = {...}
+
+    # Initialize the MN neuron
+    mn_neuron = MN_neuron(nb_inputs, parameters_combination)
+
+    # Define input tensor
+    input_tensor = torch.randn(nb_inputs)
+
+    # Run the forward pass
+    output = mn_neuron(input_tensor)
+
+License:
+This project is licensed under the GPL-3.0 License. See the LICENSE file for more details.
+
+"""
+
 from collections import namedtuple
 
-import numpy as np
 import torch
 import torch.nn as nn
-
-
-class SurrGradSpike(torch.autograd.Function):
-    """
-    Here we implement our spiking nonlinearity which also implements
-    the surrogate gradient. By subclassing torch.autograd.Function,
-    we will be able to use all of PyTorch's autograd functionality.
-    Here we use the normalized negative part of a fast sigmoid
-    as this was done in Zenke & Ganguli (2018).
-    """
-
-    scale = 100
-
-    @staticmethod
-    def forward(ctx, input):
-        """
-        In the forward pass we compute a step function of the input Tensor
-        and return it. ctx is a context object that we use to stash information which
-        we need to later backpropagate our error signals. To achieve this we use the
-        ctx.save_for_backward method.
-        """
-        ctx.save_for_backward(input)
-        out = torch.zeros_like(input)
-        out[input > 0] = 1.0
-        return out
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        """
-        In the backward pass we receive a Tensor we need to compute the
-        surrogate gradient of the loss with respect to the input.
-        Here we use the normalized negative part of a fast sigmoid
-        as this was done in Zenke & Ganguli (2018).
-        """
-        (input,) = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        grad = grad_input / (SurrGradSpike.scale * torch.abs(input) + 1.0) ** 2
-        return grad
-
-
-activation = SurrGradSpike.apply
+from utils.surrogate_gradient import activation
 
 
 # MN neuron
@@ -197,7 +217,7 @@ class IZ_neuron(nn.Module):
         u = self.state.u
 
         numerical_res = round(self.dt)
-        if self.dt>1:
+        if self.dt > 1:
             output_spike = torch.zeros_like(self.state.spk)
             for i in range(numerical_res):
                 V = V + (((0.04 * V + 5) * V) + 140 - u + x)
@@ -273,7 +293,8 @@ class LIF_neuron(nn.Module):
         V = self.state.V
         spk = self.state.spk
 
-        V = (self.beta * V + (1.0-self.beta) * x * self.R) * (1.0 - spk)
+        # V = (self.beta * V + (1.0-self.beta) * x * self.R) * (1.0 - spk)
+        V = (self.beta * V + x * self.R) * (1.0 - spk) # reset mechanism: zero
         spk = activation(V-self.threshold)
 
         self.state = self.NeuronState(V=V, spk=spk)
@@ -284,7 +305,7 @@ class LIF_neuron(nn.Module):
         self.state = None
 
 
-class RLIF_neuron(nn.Module):
+class CuBaLIF_neuron(nn.Module):
     NeuronState = namedtuple("NeuronState", ["V", "syn", "spk"])
 
     def __init__(
@@ -297,7 +318,7 @@ class RLIF_neuron(nn.Module):
             thr=1.0,
             R=1.0,
     ):
-        super(RLIF_neuron, self).__init__()
+        super(CuBaLIF_neuron, self).__init__()
 
         self.nb_inputs = nb_inputs
         self.alpha = alpha
@@ -330,9 +351,11 @@ class RLIF_neuron(nn.Module):
         spk = self.state.spk
         syn = self.state.syn
 
-        syn = self.alpha*syn + spk
-        V = (self.beta * V + (1.0-self.beta) * x *
-             self.R + (1.0-self.beta)*syn) * (1.0 - spk)
+        # syn = self.alpha*syn + spk
+        # V = (self.beta * V + (1.0-self.beta) * x *
+        #      self.R + (1.0-self.beta)*syn) * (1.0 - spk)
+        syn = self.alpha*syn + x*self.R
+        V = (self.beta * V + syn) * (1.0 - spk) # reset mechanism: zero
         spk = activation(V-self.threshold)
 
         self.state = self.NeuronState(V=V, syn=syn, spk=spk)
