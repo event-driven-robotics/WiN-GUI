@@ -66,50 +66,99 @@ import torch.nn as nn
 from utils.surrogate_gradient import activation
 
 
-# MN neuron
-class MN_neuron(nn.Module):
-    NeuronState = namedtuple("NeuronState", ["V", "i1", "i2", "Thr", "spk"])
+class ALIF_neuron(nn.Module):
+    ALIFstate = namedtuple('ALIFstate', ['V', 'W', 'spk'])
+
+    def __init__(self, n_in, channels=1, dt=1., ALIF_neuron_params=None, device='cpu'):
+        super(ALIF, self).__init__()
+
+        self.linear = torch.ones(1, n_in).to(device)
+        self.dt = dt
+        self.N = n_in
+        self.channels = channels
+
+        if ALIF_neuron_params is None:
+            self.Vr = ALIF_neuron_params_default['Vr']
+            self.Vth = ALIF_neuron_params_default['Vth']
+            self.Vrh = ALIF_neuron_params_default['Vrh']
+            self.Vreset = ALIF_neuron_params_default['Vreset']
+            self.a = ALIF_neuron_params_default['a']
+            self.b = ALIF_neuron_params_default['b']
+            self.R = ALIF_neuron_params_default['R']
+            self.taum = ALIF_neuron_params_default['taum']
+            self.tauw = ALIF_neuron_params_default['tauw']
+        else:
+            self.Vr = ALIF_neuron_params['Vr']
+            self.Vth = ALIF_neuron_params['Vth']
+            self.Vrh = ALIF_neuron_params['Vrh']
+            self.Vreset = ALIF_neuron_params['Vreset']
+            self.a = ALIF_neuron_params['a']
+            self.b = ALIF_neuron_params['b']
+            self.R = ALIF_neuron_params['R']
+            self.taum = ALIF_neuron_params['taum']
+            self.tauw = ALIF_neuron_params['tauw']
+
+        self.state = None
+
+    def forward(self, input):
+        if self.state is None:
+            self.state = self.ALIFstate(
+                V=torch.zeros(input.shape[0], self.N,
+                              device=input.device) + self.Vr,
+                W=torch.zeros(input.shape[0], self.N, device=input.device),
+                spk=torch.zeros(input.shape[0], self.N, device=input.device))
+        # print(input.shape[0])
+        V = self.state.V
+        W = self.state.W
+        I = (self.linear * input)
+        dV = (-(V - self.Vr) + self.dt * torch.exp((V - self.Vrh) /
+              self.dt) + self.R * (I - W)) / (self.taum)
+        dW = (self.a * (V - self.Vr) - W) / self.tauw
+
+        V = V + self.dt * dV
+        # print('input_max',input.max())
+        # print('I_max',I.max())
+        # print('dV_max',dV.max())
+        W = W + self.dt * dW
+
+        spk = activation(V - self.Vth)
+        # spk = ((V - self.Vth) > 0).float()
+
+        W = (1 - spk) * W + (spk) * (W + self.b)
+        V = (1 - spk) * V + (spk) * self.Vreset
+
+        self.state = self.ALIFstate(V=V, W=W, spk=spk)
+        # print('spk_sum',spk.sum())
+        # print('spk_max',spk.max())
+        return spk
+
+    def reset(self):
+        self.state = None
+        # print('reset done')
+
+
+class CuBaLIF_neuron(nn.Module):
+    NeuronState = namedtuple("NeuronState", ["V", "syn", "spk"])
 
     def __init__(
-        self,
-        nb_inputs,
-        parameters_combination,
-        dt=1 / 1000,
-        a=5,
-        A1=10,
-        A2=-0.6,
-        b=10,
-        G=50,
-        k1=200,
-        k2=20,
-        R1=0,
-        R2=1,
-    ):  # default combination: M2O of the original paper
-        super(MN_neuron, self).__init__()
+            self,
+            nb_inputs,
+            parameters_combination,
+            dt=1/1000,
+            alpha=1.0,
+            beta=1.0,
+            thr=1.0,
+            R=1.0,
+    ):
+        super(CuBaLIF_neuron, self).__init__()
 
-        # One-to-one synapse
-        self.linear = nn.Parameter(torch.ones(
-            1, nb_inputs))
-        self.N = nb_inputs
-        one2N_matrix = torch.ones(1, nb_inputs)
-        # define some constants
-        self.C = 1
-        self.EL = -0.07  # V
-        self.Vr = -0.07  # V
-        self.Tr = -0.06  # V
-        self.Tinf = -0.05  # V
-
-        # define parameters
-        self.a = a
-        self.A1 = A1
-        self.A2 = A2
-        self.b = b  # 1/s
-        self.G = G * self.C  # 1/s
-        self.k1 = k1  # 1/s
-        self.k2 = k2  # 1/s
-        self.R1 = R1  # not Ohm?
-        self.R2 = R2  # not Ohm?
-        self.dt = dt  # get dt from sample rate!
+        self.nb_inputs = nb_inputs
+        self.alpha = alpha
+        self.beta = beta
+        self.threshold = thr
+        # self.V_rest = -0.04  # -40mV
+        self.R = R
+        self.dt = dt
 
         # update parameters from GUI
         for param_name in list(parameters_combination.keys()):
@@ -119,46 +168,29 @@ class MN_neuron(nn.Module):
             )
             exec(eval_string)
 
-        # set up missing parameters
-        self.a = nn.Parameter(one2N_matrix * self.a)
-        self.A1 = nn.Parameter(one2N_matrix * self.A1 *
-                               self.C)
-        self.A2 = nn.Parameter(one2N_matrix * self.A2 *
-                               self.C)
-
         self.state = None
 
     def forward(self, x):
         if self.state is None:
             self.state = self.NeuronState(
-                V=torch.ones(x.shape[0], self.N, device=x.device) * self.EL,
-                i1=torch.zeros(x.shape[0], self.N, device=x.device),
-                i2=torch.zeros(x.shape[0], self.N, device=x.device),
-                Thr=torch.ones(x.shape[0], self.N,
-                               device=x.device) * self.Tinf,
-                spk=torch.zeros(x.shape[0], self.N, device=x.device),
+                V=torch.zeros(x.shape[0], self.nb_inputs,
+                              device=x.device),
+                syn=torch.zeros(x.shape[0], self.nb_inputs,
+                                device=x.device),
+                spk=torch.zeros(x.shape[0], self.nb_inputs, device=x.device),
             )
-
         V = self.state.V
-        i1 = self.state.i1
-        i2 = self.state.i2
-        Thr = self.state.Thr
+        spk = self.state.spk
+        syn = self.state.syn
 
-        i1 += -self.k1 * i1 * self.dt
-        i2 += -self.k2 * i2 * self.dt
-        V += self.dt * (self.linear * x + i1 + i2 -
-                        self.G * (V - self.EL)) / self.C
-        Thr += self.dt * (self.a * (V - self.EL) - self.b * (Thr - self.Tinf))
+        # syn = self.alpha*syn + spk
+        # V = (self.beta * V + (1.0-self.beta) * x *
+        #      self.R + (1.0-self.beta)*syn) * (1.0 - spk)
+        syn = self.alpha*syn + x*self.R
+        V = (self.beta * V + syn) * (1.0 - spk) # reset mechanism: zero
+        spk = activation(V-self.threshold)
 
-        spk = activation(V - Thr)
-
-        i1 = (1 - spk) * i1 + (spk) * (self.R1 * i1 + self.A1)
-        i2 = (1 - spk) * i2 + (spk) * (self.R2 * i2 + self.A2)
-        Thr = ((1 - spk) * Thr) + \
-            ((spk) * torch.max(Thr, torch.tensor(self.Tr)))
-        V = ((1 - spk) * V) + ((spk) * self.Vr)
-
-        self.state = self.NeuronState(V=V, i1=i1, i2=i2, Thr=Thr, spk=spk)
+        self.state = self.NeuronState(V=V, syn=syn, spk=spk)
 
         return spk
 
@@ -305,28 +337,49 @@ class LIF_neuron(nn.Module):
         self.state = None
 
 
-class CuBaLIF_neuron(nn.Module):
-    NeuronState = namedtuple("NeuronState", ["V", "syn", "spk"])
+class MN_neuron(nn.Module):
+    NeuronState = namedtuple("NeuronState", ["V", "i1", "i2", "Thr", "spk"])
 
     def __init__(
-            self,
-            nb_inputs,
-            parameters_combination,
-            dt=1/1000,
-            alpha=1.0,
-            beta=1.0,
-            thr=1.0,
-            R=1.0,
-    ):
-        super(CuBaLIF_neuron, self).__init__()
+        self,
+        nb_inputs,
+        parameters_combination,
+        dt=1 / 1000,
+        a=5,
+        A1=10,
+        A2=-0.6,
+        b=10,
+        G=50,
+        k1=200,
+        k2=20,
+        R1=0,
+        R2=1,
+    ):  # default combination: M2O of the original paper
+        super(MN_neuron, self).__init__()
 
-        self.nb_inputs = nb_inputs
-        self.alpha = alpha
-        self.beta = beta
-        self.threshold = thr
-        # self.V_rest = -0.04  # -40mV
-        self.R = R
-        self.dt = dt
+        # One-to-one synapse
+        self.linear = nn.Parameter(torch.ones(
+            1, nb_inputs))
+        self.N = nb_inputs
+        one2N_matrix = torch.ones(1, nb_inputs)
+        # define some constants
+        self.C = 1
+        self.EL = -0.07  # V
+        self.Vr = -0.07  # V
+        self.Tr = -0.06  # V
+        self.Tinf = -0.05  # V
+
+        # define parameters
+        self.a = a
+        self.A1 = A1
+        self.A2 = A2
+        self.b = b  # 1/s
+        self.G = G * self.C  # 1/s
+        self.k1 = k1  # 1/s
+        self.k2 = k2  # 1/s
+        self.R1 = R1  # not Ohm?
+        self.R2 = R2  # not Ohm?
+        self.dt = dt  # get dt from sample rate!
 
         # update parameters from GUI
         for param_name in list(parameters_combination.keys()):
@@ -336,29 +389,46 @@ class CuBaLIF_neuron(nn.Module):
             )
             exec(eval_string)
 
+        # set up missing parameters
+        self.a = nn.Parameter(one2N_matrix * self.a)
+        self.A1 = nn.Parameter(one2N_matrix * self.A1 *
+                               self.C)
+        self.A2 = nn.Parameter(one2N_matrix * self.A2 *
+                               self.C)
+
         self.state = None
 
     def forward(self, x):
         if self.state is None:
             self.state = self.NeuronState(
-                V=torch.zeros(x.shape[0], self.nb_inputs,
-                              device=x.device),
-                syn=torch.zeros(x.shape[0], self.nb_inputs,
-                                device=x.device),
-                spk=torch.zeros(x.shape[0], self.nb_inputs, device=x.device),
+                V=torch.ones(x.shape[0], self.N, device=x.device) * self.EL,
+                i1=torch.zeros(x.shape[0], self.N, device=x.device),
+                i2=torch.zeros(x.shape[0], self.N, device=x.device),
+                Thr=torch.ones(x.shape[0], self.N,
+                               device=x.device) * self.Tinf,
+                spk=torch.zeros(x.shape[0], self.N, device=x.device),
             )
+
         V = self.state.V
-        spk = self.state.spk
-        syn = self.state.syn
+        i1 = self.state.i1
+        i2 = self.state.i2
+        Thr = self.state.Thr
 
-        # syn = self.alpha*syn + spk
-        # V = (self.beta * V + (1.0-self.beta) * x *
-        #      self.R + (1.0-self.beta)*syn) * (1.0 - spk)
-        syn = self.alpha*syn + x*self.R
-        V = (self.beta * V + syn) * (1.0 - spk) # reset mechanism: zero
-        spk = activation(V-self.threshold)
+        i1 += -self.k1 * i1 * self.dt
+        i2 += -self.k2 * i2 * self.dt
+        V += self.dt * (self.linear * x + i1 + i2 -
+                        self.G * (V - self.EL)) / self.C
+        Thr += self.dt * (self.a * (V - self.EL) - self.b * (Thr - self.Tinf))
 
-        self.state = self.NeuronState(V=V, syn=syn, spk=spk)
+        spk = activation(V - Thr)
+
+        i1 = (1 - spk) * i1 + (spk) * (self.R1 * i1 + self.A1)
+        i2 = (1 - spk) * i2 + (spk) * (self.R2 * i2 + self.A2)
+        Thr = ((1 - spk) * Thr) + \
+            ((spk) * torch.max(Thr, torch.tensor(self.Tr)))
+        V = ((1 - spk) * V) + ((spk) * self.Vr)
+
+        self.state = self.NeuronState(V=V, i1=i1, i2=i2, Thr=Thr, spk=spk)
 
         return spk
 
