@@ -10,8 +10,9 @@ Features:
 - Visualization of spike patterns
 - Real-time adjustment of neuron model parameters
 - Auditory feedback on encoding results
-- Detailed description available at: https://www.sciencedirect.com/science/article/pii/S2352711024001304
-- And [fill in the link to the v2 update publication]
+- Detailed description available at:
+    - v1: https://www.sciencedirect.com/science/article/pii/S2352711024001304
+    - v2: https://www.sciencedirect.com/science/article/pii/S2352711024004023
 
 Authors:
 - Simon F. Muller-Cleve (v1, v2)
