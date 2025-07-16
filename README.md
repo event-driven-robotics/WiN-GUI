@@ -2,7 +2,9 @@
  
 Have you ever wondered how your data would look like in *neuromorphic*? Have you ever wondered what is actually going on *in* a neuron and how does a bunch of them *sound* like? Just run the WiN_GUI.py file and you will find out!
 
-Further information can be found in our related publication [WiN-GUI: A graphical tool for neuron-based encoding](https://www.sciencedirect.com/science/article/pii/S2352711024001304).
+Further information can be found in our related publications: 
+- [WiN-GUI: A graphical tool for neuron-based encoding](https://www.sciencedirect.com/science/article/pii/S2352711024001304)
+- [WiN-GUI Version 2: A graphical tool for neuron-based encoding](https://www.sciencedirect.com/science/article/pii/S2352711024004023)
 
 ![example_surface_gui](https://github.com/event-driven-robotics/WiN-GUI/blob/master/assets/win_gui_example.png)
 
